@@ -1,0 +1,95 @@
+# ===============================
+# Dependencies
+# ===============================
+node_modules/
+
+# ===============================
+# Build outputs
+# ===============================
+dist/
+dist-ssr/
+build/
+
+# ===============================
+# Environment files
+# ===============================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# ===============================
+# Logs
+# ===============================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# ===============================
+# OS files
+# ===============================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===============================
+# Editor / IDE
+# ===============================
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# JetBrains (optional)
+.idea/
+*.iml
+
+# ===============================
+# Caches
+# ===============================
+.cache/
+.parcel-cache/
+.vite/
+.eslintcache
+
+# ===============================
+# TypeScript
+# ===============================
+*.tsbuildinfo
+
+# ===============================
+# Coverage / Tests
+# ===============================
+coverage/
+.nyc_output/
+
+# ===============================
+# Temporary files
+# ===============================
+tmp/
+temp/
+*.swp
+*.swo
+*~
+
+# ===============================
+# Firebase / Amplify / AWS (if used)
+# ===============================
+.firebase/
+amplify/
+.aws-sam/
+cdk.out/
+
+# ===============================
+# Misc
+# ===============================
+.vercel/
+.netlify/
