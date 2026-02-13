@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signIn, signInWithRedirect } from "aws-amplify/auth";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { setLanguage, type SupportedLanguage } from "../../i18n";
 
 
 export function LoginPage() {
@@ -41,9 +42,21 @@ export function LoginPage() {
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-6">
             <div className="w-full max-w-md rounded-2xl bg-neutral-900/60 border border-neutral-800 p-6">
-                <div className="mb-6">
-                    <div className="text-2xl font-semibold">EmotiX</div>
-                    <div className="text-sm text-neutral-300">Sign in to continue</div>
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <div className="text-2xl font-semibold">{t("title")}</div>
+                        <div className="text-sm text-neutral-300">{t("subtitle")}</div>
+                    </div>
+
+                    <select
+                        className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-sm"
+                        value={i18n.language}
+                        onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
+                    >
+                        <option value="en">EN</option>
+                        <option value="de">DE</option>
+                        <option value="ru">RU</option>
+                    </select>
                 </div>
 
                 <div className="space-y-3 mb-6">
