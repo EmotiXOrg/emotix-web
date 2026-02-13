@@ -79,10 +79,15 @@ Default Vite local URL is usually `http://localhost:5173`.
 ### 4.4 Build Commands
 
 ```bash
-npm run build       # Default mode
-npm run build:test  # Uses .env.test
-npm run build:prod  # Uses .env.prod
-npm run preview     # Serve dist build locally
+npm run build         # Default mode
+npm run build:test    # Uses .env.test
+npm run build:prod    # Uses .env.prod
+npm run preview       # Serve dist build locally
+npm run lint          # ESLint check
+npm run typecheck     # TypeScript project reference check
+npm run test          # Unit/component test run
+npm run test:watch    # Watch mode for local development
+npm run test:coverage # Coverage report + threshold gate
 ```
 
 ## 5. Environment Configuration
@@ -189,21 +194,24 @@ Trigger:
 Process summary:
 
 1. Install dependencies (`npm ci`).
-2. Build in test mode (`npm run build -- --mode test`).
-3. Assume AWS role via OIDC.
-4. Upload hashed bundles with immutable cache headers.
-5. Upload static assets and PWA control files with cache policy split.
-6. Invalidate CloudFront paths for control files (`index.html`, `sw.js`, manifest, etc.).
+2. Run lint (`npm run lint`).
+3. Run typecheck (`npm run typecheck`).
+4. Run unit/component tests (`npm run test`).
+5. Enforce coverage gate (`npm run test:coverage`).
+6. Build in test mode (`npm run build -- --mode test`).
+7. Assume AWS role via OIDC.
+8. Upload hashed bundles with immutable cache headers.
+9. Upload static assets and PWA control files with cache policy split.
+10. Invalidate CloudFront paths for control files (`index.html`, `sw.js`, manifest, etc.).
 
 This deployment strategy optimizes cache efficiency while keeping entry/control files fresh.
 
-## 12. Current Gaps / Next Enterprise Hardening Steps
+## 12. Next Enterprise Hardening Steps
 
 Recommended to add next:
 
-1. Testing baseline:
-   - Unit/component tests (Vitest + React Testing Library).
-   - E2E auth smoke tests (Playwright/Cypress).
+1. E2E testing baseline:
+   - Auth smoke and critical route tests (Playwright/Cypress).
 2. Static checks in CI:
    - Dedicated `lint` and `typecheck` scripts and required status checks.
 3. Observability:
@@ -213,7 +221,9 @@ Recommended to add next:
 5. Security and compliance:
    - CSP and security headers at CDN layer.
    - Dependency and secret scanning gates in CI.
-6. Developer experience:
+6. Coverage policy maturity:
+   - Raise thresholds gradually as feature coverage expands.
+7. Developer experience:
    - Add `.env.example` files and a documented local bootstrap checklist.
 
 ## 13. Quick Onboarding Checklist
@@ -224,4 +234,6 @@ Recommended to add next:
    - `/auth?mode=login` renders.
    - Sign-in route transitions to `/app` after successful auth.
 4. Confirm localization switching in auth UI.
-5. Build with `npm run build:test` before opening PRs for test deployment.
+5. Run `npm run lint` and `npm run typecheck` before opening PRs.
+6. Run `npm run test` and `npm run test:coverage` before opening PRs.
+7. Build with `npm run build:test` before opening PRs for test deployment.

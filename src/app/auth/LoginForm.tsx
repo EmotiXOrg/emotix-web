@@ -17,6 +17,16 @@ export type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
 
 const normEmail = (v: string) => v.trim().toLowerCase();
 
+function getErrorMessage(err: unknown, fallback: string) {
+    if (err && typeof err === "object" && "message" in err) {
+        const maybeMessage = (err as { message?: unknown }).message;
+        if (typeof maybeMessage === "string" && maybeMessage.trim()) {
+            return maybeMessage;
+        }
+    }
+    return fallback;
+}
+
 function getQuery(locSearch: string) {
     return new URLSearchParams(locSearch);
 }
@@ -96,8 +106,8 @@ export function LoginForm(props: { mode: AuthMode }) {
         try {
             await signInWithRedirect({ provider });
             // redirect happens; no further code
-        } catch (e: any) {
-            setError(e?.message ?? `Failed to redirect to ${provider}`);
+        } catch (err) {
+            setError(getErrorMessage(err, `Failed to redirect to ${provider}`));
             setBusy(false);
         }
     }

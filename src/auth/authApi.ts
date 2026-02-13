@@ -15,10 +15,16 @@ export type AuthResult =
     | { ok: true }
     | { ok: false; code?: string; message: string };
 
+type AmplifyErrorLike = {
+    name?: unknown;
+    message?: unknown;
+};
+
 function toAuthError(e: unknown): AuthResult {
     if (e && typeof e === "object" && "name" in e) {
-        const code = String((e as any).name);
-        const message = String((e as any).message ?? "Authentication error");
+        const err = e as AmplifyErrorLike;
+        const code = String(err.name);
+        const message = String(err.message ?? "Authentication error");
         return { ok: false, code, message };
     }
     return { ok: false, message: "Authentication error" };
@@ -69,7 +75,7 @@ export async function nativeRequestReset(email: string): Promise<AuthResult> {
         await resetPassword({ username: email });
         // IMPORTANT: don't reveal if user exists
         return { ok: true };
-    } catch (e) {
+    } catch {
         // still return ok to avoid account enumeration UX
         return { ok: true };
     }
@@ -110,7 +116,7 @@ export async function isSignedIn(): Promise<boolean> {
     }
 }
 
-export async function debugSession(): Promise<any> {
+export async function debugSession(): Promise<Awaited<ReturnType<typeof fetchAuthSession>>> {
     const s = await fetchAuthSession();
     return s;
 }

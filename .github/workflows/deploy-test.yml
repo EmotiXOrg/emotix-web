@@ -27,6 +27,18 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run unit/component tests
+        run: npm run test
+
+      - name: Run coverage gate
+        run: npm run test:coverage
+
       - name: Build (mode=test)
         run: npm run build -- --mode test
 
@@ -101,3 +113,4 @@ jobs:
               "/registerSW.js" \
               "/favicon.ico" \
               "/favicon.svg"
+
