@@ -1,14 +1,21 @@
 import { createBrowserRouter } from "react-router-dom";
-import { AuthGate } from "./AuthGate";
-import { LoginPage } from "./auth/LoginPage";
+import { AuthGate, RequireAuth } from "./AuthGate";
+import { AuthPage } from "./auth/AuthPage";
 import { CallbackPage } from "./auth/CallbackPage";
 import { AppShell } from "./AppShell";
 import { LogoutPage } from "./auth/LogoutPage";
 
 export const router = createBrowserRouter([
     { path: "/", element: <AuthGate /> },
-    { path: "/auth", element: <LoginPage /> },
+
+    // Single auth route (mode via query string)
+    { path: "/auth", element: <AuthPage /> },
+
+    // Hosted UI callback
     { path: "/auth/callback", element: <CallbackPage /> },
+
     { path: "/logout", element: <LogoutPage /> },
-    { path: "/app/*", element: <AppShell /> },
+
+    // Protect the app
+    { path: "/app/*", element: <RequireAuth><AppShell /></RequireAuth> },
 ]);

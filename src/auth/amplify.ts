@@ -16,7 +16,7 @@ Amplify.configure({
                     domain: cognitoDomain,
                     scopes: ["openid", "email", "profile"],
                     redirectSignIn: [`${appOrigin}/auth/callback`],
-                    redirectSignOut: [`${appOrigin}/auth`],
+                    redirectSignOut: [`${appOrigin}/logout`, `${appOrigin}/auth`],
                     responseType: "code",
                 },
             },
