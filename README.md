@@ -1,73 +1,227 @@
-# React + TypeScript + Vite
+# EmotiX Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend application for EmotiX built with React, TypeScript, Vite, Tailwind, AWS Amplify Auth (Cognito), i18next, and PWA support.
 
-Currently, two official plugins are available:
+This document is intended for new developers joining the project.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 1. Project Purpose
 
-## React Compiler
+The current implementation provides:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Authentication UI and flows (email/password + social redirect providers).
+- Authenticated app shell with route protection.
+- Multi-language UI (English, German, Russian).
+- Progressive Web App build and service worker registration.
+- Test environment deployment via GitHub Actions to S3 + CloudFront.
 
-## Expanding the ESLint configuration
+The business UI under `/app/*` is currently scaffolded with placeholder screens.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 2. Tech Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- React 19
+- TypeScript 5 (strict mode enabled)
+- Vite 7
+- React Router 7
+- AWS Amplify Auth v6 (Cognito Hosted UI + native auth methods)
+- Tailwind CSS 3 + PostCSS + Autoprefixer
+- i18next + react-i18next
+- vite-plugin-pwa
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 3. Repository Structure
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+.
+|-- src/
+|   |-- app/
+|   |   |-- router.tsx            # Top-level routes
+|   |   |-- AuthGate.tsx          # Session check + route guard
+|   |   |-- AppShell.tsx          # Protected application shell
+|   |   `-- auth/                 # Auth pages and reusable auth UI
+|   |-- auth/
+|   |   |-- amplify.ts            # Amplify/Cognito runtime configuration
+|   |   `-- authApi.ts            # Native auth wrappers around Amplify
+|   |-- i18n/
+|   |   |-- index.ts              # i18n initialization and language persistence
+|   |   `-- locales/              # Translation files per language/namespace
+|   |-- index.css                 # Tailwind entry + global height rule
+|   `-- main.tsx                  # App bootstrap
+|-- public/
+|   `-- icons/                    # PWA icons
+|-- .github/workflows/
+|   `-- deploy-test.yml           # Test environment deployment pipeline
+|-- .env                          # Local defaults
+|-- .env.test                     # Test mode build variables
+|-- .env.prod                     # Production mode build variables
+`-- vite.config.ts                # Vite + PWA plugin configuration
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 4. Local Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 4.1 Prerequisites
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 20.x LTS (aligned with CI workflow).
+- npm 10+.
+
+### 4.2 Install
+
+```bash
+npm ci
 ```
+
+### 4.3 Run
+
+```bash
+npm run dev
+```
+
+Default Vite local URL is usually `http://localhost:5173`.
+
+### 4.4 Build Commands
+
+```bash
+npm run build       # Default mode
+npm run build:test  # Uses .env.test
+npm run build:prod  # Uses .env.prod
+npm run preview     # Serve dist build locally
+```
+
+## 5. Environment Configuration
+
+The app relies on Vite environment variables (must start with `VITE_`).
+
+| Variable | Purpose | Example |
+|---|---|---|
+| `VITE_STAGE` | Environment label | `local`, `test`, `prod` |
+| `VITE_AWS_REGION` | AWS region reference | `eu-central-1` |
+| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID | `eu-central-1_xxxxx` |
+| `VITE_COGNITO_USER_POOL_CLIENT_ID` | Cognito App Client ID | `xxxxxxxx` |
+| `VITE_COGNITO_DOMAIN` | Hosted UI domain (full URL) | `https://auth.test.emotix.net` |
+| `VITE_APP_ORIGIN` | Public app origin for redirects | `https://test.emotix.net` |
+| `VITE_API_BASE_URL` | Backend API base URL (reserved for app API usage) | `https://api.test.emotix.net` |
+
+Important:
+
+- `VITE_APP_ORIGIN` must match allowed callback/logout URLs configured in Cognito.
+- `VITE_COGNITO_DOMAIN` is normalized at runtime (the `https://` prefix is stripped internally where required).
+- Never commit secrets. These values are publicly embedded in frontend bundles by design; use only non-secret identifiers.
+
+## 6. Routing and Access Control
+
+Defined in `src/app/router.tsx`.
+
+| Route | Purpose |
+|---|---|
+| `/` | Runs `AuthGate` and redirects by session status |
+| `/auth` | Auth flow container (`mode` query controls screen state) |
+| `/auth/callback` | Hosted UI OAuth callback route |
+| `/logout` | Local sign-out + Cognito logout redirect |
+| `/app/*` | Protected app area wrapped in `RequireAuth` |
+
+`AuthGate` redirect behavior:
+
+1. Authenticated user -> `/app`
+2. Unauthenticated user -> `/auth?mode=login`
+
+Guard behavior is in `src/app/AuthGate.tsx` using `getCurrentUser()`.
+
+## 7. Authentication Flows
+
+Auth implementation combines:
+
+- Hosted UI social login: `signInWithRedirect()` for Google/Facebook.
+- Native Cognito flows: sign-up, sign-in, confirm sign-up, resend code, forgot/reset password.
+
+Primary files:
+
+- `src/app/auth/LoginForm.tsx` (state machine by mode)
+- `src/auth/authApi.ts` (Amplify wrappers + error normalization)
+- `src/auth/amplify.ts` (Amplify Auth configuration)
+- `src/app/auth/CallbackPage.tsx` and `src/app/auth/LogoutPage.tsx`
+
+Supported auth modes:
+
+- `login`
+- `signup`
+- `verify`
+- `forgot`
+- `reset`
+
+Security/UX detail currently implemented:
+
+- Password reset request is anti-enumeration: request path returns success even if the user does not exist.
+
+## 8. Internationalization (i18n)
+
+Configured in `src/i18n/index.ts`.
+
+- Supported languages: `en`, `de`, `ru`.
+- Namespaces: `common`, `auth`.
+- Selected language is persisted to `localStorage` key `emotix_lang`.
+- Default fallback language: `en`.
+
+Language can be changed in the auth card header (`src/app/auth/AuthCard.tsx`).
+
+## 9. Styling and UI
+
+- Tailwind CSS is enabled via `src/index.css` and `tailwind.config.js`.
+- Current visual style is dark-themed auth + app shell prototype.
+- `AppShell` currently contains placeholder tabs/screens for `Tonight`, `Explore`, `Profile`, and `History`.
+
+## 10. PWA Setup
+
+Configured in `vite.config.ts` with `vite-plugin-pwa`:
+
+- `registerType: "autoUpdate"`.
+- Service worker file name: `sw.js`.
+- Web manifest configured with app name/icons in `public/icons`.
+- Workbox `navigateFallback` set to `/index.html`.
+
+This supports installable behavior and offline caching patterns appropriate for SPA routing.
+
+## 11. Deployment (Test Environment)
+
+GitHub Actions workflow: `.github/workflows/deploy-test.yml`.
+
+Trigger:
+
+- Push to `main`.
+
+Process summary:
+
+1. Install dependencies (`npm ci`).
+2. Build in test mode (`npm run build -- --mode test`).
+3. Assume AWS role via OIDC.
+4. Upload hashed bundles with immutable cache headers.
+5. Upload static assets and PWA control files with cache policy split.
+6. Invalidate CloudFront paths for control files (`index.html`, `sw.js`, manifest, etc.).
+
+This deployment strategy optimizes cache efficiency while keeping entry/control files fresh.
+
+## 12. Current Gaps / Next Enterprise Hardening Steps
+
+Recommended to add next:
+
+1. Testing baseline:
+   - Unit/component tests (Vitest + React Testing Library).
+   - E2E auth smoke tests (Playwright/Cypress).
+2. Static checks in CI:
+   - Dedicated `lint` and `typecheck` scripts and required status checks.
+3. Observability:
+   - Centralized error tracking (e.g., Sentry) and structured client logging.
+4. API layer standardization:
+   - Typed API client using `VITE_API_BASE_URL`, with auth token propagation and retry policy.
+5. Security and compliance:
+   - CSP and security headers at CDN layer.
+   - Dependency and secret scanning gates in CI.
+6. Developer experience:
+   - Add `.env.example` files and a documented local bootstrap checklist.
+
+## 13. Quick Onboarding Checklist
+
+1. Install Node.js 20 and run `npm ci`.
+2. Verify `.env` values for your target environment.
+3. Run `npm run dev` and validate:
+   - `/auth?mode=login` renders.
+   - Sign-in route transitions to `/app` after successful auth.
+4. Confirm localization switching in auth UI.
+5. Build with `npm run build:test` before opening PRs for test deployment.
