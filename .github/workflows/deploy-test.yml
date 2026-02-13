@@ -1,0 +1,103 @@
+name: Deploy Web App (test)
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-web-test
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (mode=test)
+        run: npm run build -- --mode test
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 1) Upload hashed Vite bundles (immutable)
+      - name: Upload hashed app bundles (immutable)
+        run: |
+          aws s3 sync dist/assets "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/assets" \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable"
+
+      # 2) Upload icons (cache 1 day by default)
+      - name: Upload icons (1 day cache)
+        run: |
+          if [ -d "dist/icons" ]; then
+            aws s3 sync dist/icons "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/icons" \
+              --delete \
+              --cache-control "public,max-age=86400"
+          fi
+
+      # 3) Upload other static files excluding control files
+      - name: Upload static files (excluding control files)
+        run: |
+          aws s3 sync dist "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}" \
+            --delete \
+            --exclude "index.html" \
+            --exclude "manifest.webmanifest" \
+            --exclude "sw.js" \
+            --exclude "registerSW.js" \
+            --exclude "assets/*" \
+            --exclude "icons/*" \
+            --cache-control "public,max-age=3600"
+
+      # 4) Upload PWA control files with no-cache
+      - name: Upload index.html (no-cache)
+        run: |
+          aws s3 cp dist/index.html "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Upload manifest (no-cache)
+        run: |
+          if [ -f "dist/manifest.webmanifest" ]; then
+            aws s3 cp dist/manifest.webmanifest "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/manifest.webmanifest" \
+              --cache-control "no-cache,no-store,must-revalidate"
+          fi
+
+      - name: Upload service worker (no-cache)
+        run: |
+          if [ -f "dist/sw.js" ]; then
+            aws s3 cp dist/sw.js "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/sw.js" \
+              --cache-control "no-cache,no-store,must-revalidate"
+          fi
+          if [ -f "dist/registerSW.js" ]; then
+            aws s3 cp dist/registerSW.js "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/registerSW.js" \
+              --cache-control "no-cache,no-store,must-revalidate"
+          fi
+
+      # 5) Invalidate only control files (NOT assets/*)
+      - name: CloudFront invalidation (PWA control files)
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.AWS_TEST_APP_CLOUD_FRONT_DISTRIBUTION_ID }}" \
+            --paths \
+              "/index.html" \
+              "/manifest.webmanifest" \
+              "/sw.js" \
+              "/registerSW.js" \
+              "/favicon.ico" \
+              "/favicon.svg"

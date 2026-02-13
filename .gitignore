@@ -48,7 +48,7 @@ desktop.ini
 !.vscode/launch.json
 !.vscode/tasks.json
 
-# JetBrains (optional)
+# JetBrains
 .idea/
 *.iml
 
@@ -81,7 +81,7 @@ temp/
 *~
 
 # ===============================
-# Firebase / Amplify / AWS (if used)
+# Firebase / Amplify / AWS
 # ===============================
 .firebase/
 amplify/
