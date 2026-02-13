@@ -1,5 +1,4 @@
 import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
-import { signOut } from "aws-amplify/auth";
 
 function Screen({ title }: { title: string }) {
     return (
@@ -13,8 +12,7 @@ function Screen({ title }: { title: string }) {
 export function AppShell() {
     const nav = useNavigate();
     async function logout() {
-        await signOut();
-        nav("/auth", { replace: true });
+        nav("/logout");
     }
 
     return (
