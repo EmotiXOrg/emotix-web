@@ -3,6 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { signInWithRedirect } from "aws-amplify/auth";
 import { useTranslation } from "react-i18next";
 import { AuthCard } from "./AuthCard";
+import { Button } from "../../ui/Button";
+import { TextField } from "../../ui/TextField";
+import { Notification } from "../../ui/Notification";
+import { MethodChooser } from "./components/MethodChooser";
+import { EmailStep } from "./components/EmailStep";
+import { PasswordStep } from "./components/PasswordStep";
 
 import {
     nativeConfirm,
@@ -46,11 +52,20 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [err, setErr] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [showPasswordLogin, setShowPasswordLogin] = useState(Boolean(emailFromQuery));
 
-    // Keep email in sync when navigating between modes
     useEffect(() => {
-        if (emailFromQuery) setEmail(emailFromQuery);
+        if (emailFromQuery) {
+            setEmail(emailFromQuery);
+            setShowPasswordLogin(true);
+        }
     }, [emailFromQuery]);
+
+    useEffect(() => {
+        if (props.mode !== "login") {
+            setShowPasswordLogin(true);
+        }
+    }, [props.mode]);
 
     const title = useMemo(() => {
         switch (props.mode) {
@@ -70,13 +85,13 @@ export function LoginForm(props: { mode: AuthMode }) {
     const subtitle = useMemo(() => {
         switch (props.mode) {
             case "login":
-                return t("subtitle", { defaultValue: "Continue to EmotiX" });
+                return t("subtitle", { defaultValue: "Choose a sign-in method" });
             case "signup":
                 return t("signupSubtitle", { defaultValue: "Sign up with email and verify it" });
             case "verify":
                 return t("verifySubtitle", { defaultValue: "Enter the code we sent to your email" });
             case "forgot":
-                return t("forgotSubtitle", { defaultValue: "We’ll email you a reset code" });
+                return t("forgotSubtitle", { defaultValue: "We'll email you a reset code" });
             case "reset":
                 return t("resetSubtitle", { defaultValue: "Enter the code and set a new password" });
         }
@@ -85,7 +100,9 @@ export function LoginForm(props: { mode: AuthMode }) {
     function go(mode: AuthMode, opts?: { email?: string; replace?: boolean }) {
         const params = new URLSearchParams();
         params.set("mode", mode);
-        if (opts?.email) params.set("email", opts.email);
+        if (opts?.email) {
+            params.set("email", opts.email);
+        }
         nav(`/auth?${params.toString()}`, { replace: opts?.replace ?? false });
     }
 
@@ -105,9 +122,8 @@ export function LoginForm(props: { mode: AuthMode }) {
         setBusy(true);
         try {
             await signInWithRedirect({ provider });
-            // redirect happens; no further code
-        } catch (err) {
-            setError(getErrorMessage(err, `Failed to redirect to ${provider}`));
+        } catch (socialError) {
+            setError(getErrorMessage(socialError, `Failed to redirect to ${provider}`));
             setBusy(false);
         }
     }
@@ -118,18 +134,17 @@ export function LoginForm(props: { mode: AuthMode }) {
         setInfo(null);
 
         const eNorm = normEmail(email);
-
         setBusy(true);
+
         try {
             if (props.mode === "login") {
-                const r = await nativeSignIn(eNorm, password);
-                if (!r.ok) {
-                    // Common: user exists but hasn't confirmed email
-                    if (r.code === "UserNotConfirmedException") {
+                const result = await nativeSignIn(eNorm, password);
+                if (!result.ok) {
+                    if (result.code === "UserNotConfirmedException") {
                         go("verify", { email: eNorm, replace: true });
                         return;
                     }
-                    setError(r.message);
+                    setError(result.message);
                     return;
                 }
                 nav("/app", { replace: true });
@@ -137,10 +152,9 @@ export function LoginForm(props: { mode: AuthMode }) {
             }
 
             if (props.mode === "signup") {
-                const r = await nativeSignUp(eNorm, password);
-                if (!r.ok) {
-                    // If exists, tell user to login/reset
-                    if (r.code === "UsernameExistsException") {
+                const result = await nativeSignUp(eNorm, password);
+                if (!result.ok) {
+                    if (result.code === "UsernameExistsException") {
                         setError(
                             t("userExists", {
                                 defaultValue: "Account already exists. Try login or reset password.",
@@ -148,7 +162,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                         );
                         return;
                     }
-                    setError(r.message);
+                    setError(result.message);
                     return;
                 }
                 go("verify", { email: eNorm, replace: true });
@@ -156,33 +170,30 @@ export function LoginForm(props: { mode: AuthMode }) {
             }
 
             if (props.mode === "verify") {
-                const r = await nativeConfirm(eNorm, code.trim());
-                if (!r.ok) {
-                    setError(r.message);
+                const result = await nativeConfirm(eNorm, code.trim());
+                if (!result.ok) {
+                    setError(result.message);
                     return;
                 }
-                // After verification, send to login (don’t auto-login)
                 go("login", { replace: true });
                 setInformation(t("verifiedNowLogin", { defaultValue: "Email verified. Please log in." }));
                 return;
             }
 
             if (props.mode === "forgot") {
-                // Anti-enumeration: your authApi returns ok:true even if user doesn't exist
                 await nativeRequestReset(eNorm);
                 go("reset", { email: eNorm, replace: true });
                 return;
             }
 
             if (props.mode === "reset") {
-                const r = await nativeConfirmReset(eNorm, code.trim(), newPassword);
-                if (!r.ok) {
-                    setError(r.message);
+                const result = await nativeConfirmReset(eNorm, code.trim(), newPassword);
+                if (!result.ok) {
+                    setError(result.message);
                     return;
                 }
                 go("login", { replace: true });
                 setInformation(t("passwordUpdated", { defaultValue: "Password updated. Please log in." }));
-                return;
             }
         } finally {
             setBusy(false);
@@ -193,11 +204,10 @@ export function LoginForm(props: { mode: AuthMode }) {
         setErr(null);
         setInfo(null);
         setBusy(true);
-
         try {
-            const r = await nativeResend(normEmail(email));
-            if (!r.ok) {
-                setError(r.message);
+            const result = await nativeResend(normEmail(email));
+            if (!result.ok) {
+                setError(result.message);
                 return;
             }
             setInformation(t("codeResent", { defaultValue: "Code resent." }));
@@ -209,159 +219,124 @@ export function LoginForm(props: { mode: AuthMode }) {
     const canSubmit = useMemo(() => {
         if (busy) return false;
         if (!email.trim()) return false;
-
         if (props.mode === "login" || props.mode === "signup") return !!password;
         if (props.mode === "verify") return !!code.trim();
         if (props.mode === "forgot") return true;
         if (props.mode === "reset") return !!code.trim() && !!newPassword;
         return false;
-    }, [busy, email, password, code, newPassword, props.mode]);
+    }, [busy, code, email, newPassword, password, props.mode]);
+
+    const showForm = props.mode !== "login" || showPasswordLogin;
 
     return (
         <AuthCard title={title} subtitle={subtitle}>
-            {/* Social buttons only on login (can add to signup if you want) */}
-            {props.mode === "login" && (
-                <>
-                    <div className="space-y-3 mb-6">
-                        <button
-                            className="w-full rounded-xl bg-neutral-100 text-neutral-900 py-3 font-medium disabled:opacity-60"
-                            onClick={() => social("Google")}
-                            disabled={busy}
-                            type="button"
-                        >
-                            Continue with Google
-                        </button>
-                        <button
-                            className="w-full rounded-xl bg-blue-600 py-3 font-medium disabled:opacity-60"
-                            onClick={() => social("Facebook")}
-                            disabled={busy}
-                            type="button"
-                        >
-                            Continue with Facebook
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-3 my-6">
-                        <div className="h-px bg-neutral-800 flex-1" />
-                        <div className="text-xs text-neutral-400">or</div>
-                        <div className="h-px bg-neutral-800 flex-1" />
-                    </div>
-                </>
+            {props.mode === "login" && !showPasswordLogin && (
+                <MethodChooser
+                    busy={busy}
+                    onChoosePassword={() => setShowPasswordLogin(true)}
+                    onChooseSocial={social}
+                />
             )}
 
-            <form onSubmit={onSubmit} className="space-y-3">
-                <input
-                    className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-4 py-3 outline-none"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                />
+            {showForm && (
+                <div key={props.mode} className="motion-fade-slide">
+                    <form onSubmit={onSubmit} className="space-y-3">
+                        <EmailStep email={email} onEmailChange={setEmail} />
 
-                {(props.mode === "login" || props.mode === "signup") && (
-                    <input
-                        className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-4 py-3 outline-none"
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        type="password"
-                        autoComplete={props.mode === "login" ? "current-password" : "new-password"}
-                    />
-                )}
+                        {(props.mode === "login" || props.mode === "signup") && (
+                            <PasswordStep password={password} onPasswordChange={setPassword} mode={props.mode} />
+                        )}
 
-                {props.mode === "verify" && (
-                    <input
-                        className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-4 py-3 outline-none"
-                        placeholder="Verification code"
-                        value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        inputMode="numeric"
-                    />
-                )}
+                        {props.mode === "verify" && (
+                            <TextField
+                                label="Verification code"
+                                placeholder="Verification code"
+                                value={code}
+                                onChange={(e) => setCode(e.target.value)}
+                                inputMode="numeric"
+                            />
+                        )}
 
-                {props.mode === "reset" && (
-                    <>
-                        <input
-                            className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-4 py-3 outline-none"
-                            placeholder="Reset code"
-                            value={code}
-                            onChange={(e) => setCode(e.target.value)}
-                            inputMode="numeric"
-                        />
-                        <input
-                            className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-4 py-3 outline-none"
-                            placeholder="New password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            type="password"
-                            autoComplete="new-password"
-                        />
-                    </>
-                )}
+                        {props.mode === "reset" && (
+                            <>
+                                <TextField
+                                    label="Reset code"
+                                    placeholder="Reset code"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    inputMode="numeric"
+                                />
+                                <PasswordStep
+                                    password={newPassword}
+                                    onPasswordChange={setNewPassword}
+                                    mode="reset"
+                                    label="New password"
+                                />
+                            </>
+                        )}
 
-                {err && <div className="text-sm text-red-400">{err}</div>}
-                {info && <div className="text-sm text-emerald-300">{info}</div>}
+                        {err && <Notification tone="error" message={err} />}
+                        {info && <Notification tone="success" message={info} />}
 
-                <button
-                    className="w-full rounded-xl bg-emerald-500 text-neutral-950 py-3 font-semibold disabled:opacity-60"
-                    disabled={!canSubmit}
-                >
-                    {busy ? "Please wait…" : "Continue"}
-                </button>
-            </form>
+                        <Button fullWidth disabled={!canSubmit} type="submit">
+                            {busy ? "Please wait..." : "Continue"}
+                        </Button>
+                    </form>
+                </div>
+            )}
 
-            {/* Footer actions */}
             <div className="mt-4 flex items-center justify-between text-sm text-neutral-300">
                 {props.mode === "login" && (
                     <>
-                        <button className="underline underline-offset-4" onClick={() => go("signup")} disabled={busy} type="button">
-                            Create account
-                        </button>
-                        <button className="underline underline-offset-4" onClick={() => go("forgot")} disabled={busy} type="button">
+                        {showPasswordLogin ? (
+                            <Button variant="link" onClick={() => setShowPasswordLogin(false)} disabled={busy} type="button">
+                                Back to methods
+                            </Button>
+                        ) : (
+                            <Button variant="link" onClick={() => go("signup")} disabled={busy} type="button">
+                                Create account
+                            </Button>
+                        )}
+                        <Button variant="link" onClick={() => go("forgot")} disabled={busy} type="button">
                             Forgot password
-                        </button>
+                        </Button>
                     </>
                 )}
 
                 {props.mode === "signup" && (
                     <>
-                        <button className="underline underline-offset-4" onClick={() => go("login")} disabled={busy} type="button">
+                        <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             Back to login
-                        </button>
+                        </Button>
                         <span />
                     </>
                 )}
 
                 {props.mode === "verify" && (
                     <>
-                        <button className="underline underline-offset-4" onClick={() => go("login")} disabled={busy} type="button">
+                        <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             Back to login
-                        </button>
-                        <button
-                            className="underline underline-offset-4"
-                            onClick={onResendCode}
-                            disabled={busy || !email}
-                            type="button"
-                        >
+                        </Button>
+                        <Button variant="link" onClick={onResendCode} disabled={busy || !email} type="button">
                             Resend code
-                        </button>
+                        </Button>
                     </>
                 )}
 
                 {props.mode === "forgot" && (
                     <>
-                        <button className="underline underline-offset-4" onClick={() => go("login")} disabled={busy} type="button">
+                        <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             Back to login
-                        </button>
+                        </Button>
                         <span />
                     </>
                 )}
 
                 {props.mode === "reset" && (
                     <>
-                        <button className="underline underline-offset-4" onClick={() => go("login")} disabled={busy} type="button">
+                        <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             Back to login
-                        </button>
+                        </Button>
                         <span />
                     </>
                 )}

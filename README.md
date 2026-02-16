@@ -171,6 +171,9 @@ Language can be changed in the auth card header (`src/app/auth/AuthCard.tsx`).
 - Tailwind CSS is enabled via `src/index.css` and `tailwind.config.js`.
 - Current visual style is dark-themed auth + app shell prototype.
 - `AppShell` currently contains placeholder tabs/screens for `Tonight`, `Explore`, `Profile`, and `History`.
+- Shared UI primitives now live in `src/ui` (`Button`, `TextField`, `Notification`) and are the preferred base for new screens to keep styling consistent.
+- Auth UI is decomposed into focused components under `src/app/auth/components` for easier iteration (`EmailStep`, `PasswordStep`, `MethodChooser`).
+- Basic motion tokens are defined in `src/index.css` (`motion-fade-slide`, `motion-soft`) with `prefers-reduced-motion` handling.
 
 ## 10. PWA Setup
 
