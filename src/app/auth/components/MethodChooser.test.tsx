@@ -12,6 +12,7 @@ describe("MethodChooser", () => {
         render(
             <MethodChooser
                 busy={false}
+                methods={["google", "facebook", "password"]}
                 onChoosePassword={onChoosePassword}
                 onChooseSocial={onChooseSocial}
             />

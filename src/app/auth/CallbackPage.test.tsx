@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { CallbackPage } from "./CallbackPage";
 
-const { navigateMock, getCurrentUserMock } = vi.hoisted(() => ({
+const { navigateMock, getCurrentUserMock, locationSearchMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   getCurrentUserMock: vi.fn(),
+  locationSearchMock: vi.fn(() => ""),
 }));
 
 // External auth/session and router navigation are mocked to keep callback tests deterministic.
@@ -17,6 +18,7 @@ vi.mock("react-router-dom", async () => {
   return {
     ...actual,
     useNavigate: () => navigateMock,
+    useLocation: () => ({ search: locationSearchMock() }),
   };
 });
 
@@ -24,6 +26,8 @@ describe("CallbackPage", () => {
   beforeEach(() => {
     navigateMock.mockReset();
     getCurrentUserMock.mockReset();
+    locationSearchMock.mockReset();
+    locationSearchMock.mockReturnValue("");
   });
 
   it("redirects to /app when current user is available", async () => {
@@ -45,5 +49,14 @@ describe("CallbackPage", () => {
     // Failure here means callback errors are not surfaced to users for troubleshooting.
     expect(await screen.findByText("Login failed")).toBeInTheDocument();
     expect(screen.getByText("Auth callback failed in test")).toBeInTheDocument();
+  });
+
+  it("renders oauth error from callback query", async () => {
+    locationSearchMock.mockReturnValue("?error=access_denied&error_description=Denied");
+
+    render(<CallbackPage />);
+
+    expect(await screen.findByText("Login failed")).toBeInTheDocument();
+    expect(screen.getByText("Denied")).toBeInTheDocument();
   });
 });

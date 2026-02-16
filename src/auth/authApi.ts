@@ -15,6 +15,29 @@ export type AuthResult =
     | { ok: true }
     | { ok: false; code?: string; message: string };
 
+export type LoginMethod = "password" | "google" | "facebook";
+export type DiscoverNextAction =
+    | "signup_or_signin"
+    | "password"
+    | "choose_method"
+    | "social"
+    | "needs_verification";
+
+export type AuthDiscoverResponse = {
+    email: string;
+    methods: LoginMethod[];
+    nextAction: DiscoverNextAction;
+};
+
+export type AuthMethodsResponse = {
+    methods: Array<{
+        method: LoginMethod;
+        provider: string;
+        linkedAt?: string;
+        verified: boolean;
+    }>;
+};
+
 type AmplifyErrorLike = {
     name?: unknown;
     message?: unknown;
@@ -28,6 +51,19 @@ function toAuthError(e: unknown): AuthResult {
         return { ok: false, code, message };
     }
     return { ok: false, message: "Authentication error" };
+}
+
+function getApiBaseUrl(): string {
+    return (import.meta.env.VITE_API_BASE_URL as string).replace(/\/+$/, "");
+}
+
+async function getAccessTokenOrThrow(): Promise<string> {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.accessToken?.toString();
+    if (!token) {
+        throw new Error("No access token available");
+    }
+    return token;
 }
 
 export async function nativeSignUp(email: string, password: string): Promise<AuthResult> {
@@ -119,4 +155,54 @@ export async function isSignedIn(): Promise<boolean> {
 export async function debugSession(): Promise<Awaited<ReturnType<typeof fetchAuthSession>>> {
     const s = await fetchAuthSession();
     return s;
+}
+
+export async function discoverAuthMethods(email: string): Promise<AuthDiscoverResponse> {
+    const res = await fetch(`${getApiBaseUrl()}/auth/discover`, {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to discover auth methods");
+    }
+    const data = (await res.json()) as AuthDiscoverResponse;
+    return data;
+}
+
+export async function getAuthMethods(): Promise<AuthMethodsResponse> {
+    const token = await getAccessTokenOrThrow();
+    const res = await fetch(`${getApiBaseUrl()}/auth/methods`, {
+        method: "GET",
+        headers: {
+            authorization: `Bearer ${token}`,
+        },
+    });
+    if (!res.ok) {
+        throw new Error("Failed to load auth methods");
+    }
+    return (await res.json()) as AuthMethodsResponse;
+}
+
+export async function setPassword(newPassword: string): Promise<AuthResult> {
+    try {
+        const token = await getAccessTokenOrThrow();
+        const res = await fetch(`${getApiBaseUrl()}/auth/set-password`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ newPassword }),
+        });
+        if (!res.ok) {
+            return { ok: false, message: "Failed to set password" };
+        }
+        return { ok: true };
+    } catch (e) {
+        return toAuthError(e);
+    }
 }

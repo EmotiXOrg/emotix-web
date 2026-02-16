@@ -9,17 +9,27 @@ import { Notification } from "../../ui/Notification";
 import { MethodChooser } from "./components/MethodChooser";
 import { EmailStep } from "./components/EmailStep";
 import { PasswordStep } from "./components/PasswordStep";
+import { SocialButtons } from "./components/SocialButtons";
 
 import {
+    discoverAuthMethods,
     nativeConfirm,
     nativeConfirmReset,
     nativeRequestReset,
     nativeResend,
     nativeSignIn,
     nativeSignUp,
+    type LoginMethod,
 } from "../../auth/authApi";
 
 export type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
+type LoginState =
+    | "enter_email"
+    | "discovering"
+    | "choose_method"
+    | "password_login"
+    | "social_only"
+    | "needs_verification";
 
 const normEmail = (v: string) => v.trim().toLowerCase();
 
@@ -37,6 +47,15 @@ function getQuery(locSearch: string) {
     return new URLSearchParams(locSearch);
 }
 
+function socialMethodsFrom(methods: LoginMethod[]): Array<"google" | "facebook"> {
+    return methods.filter((m): m is "google" | "facebook" => m === "google" || m === "facebook");
+}
+
+function fallbackMethods(methods: LoginMethod[]): LoginMethod[] {
+    if (methods.length > 0) return methods;
+    return ["password", "google", "facebook"];
+}
+
 export function LoginForm(props: { mode: AuthMode }) {
     const nav = useNavigate();
     const loc = useLocation();
@@ -52,18 +71,18 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [err, setErr] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [showPasswordLogin, setShowPasswordLogin] = useState(Boolean(emailFromQuery));
+    const [loginState, setLoginState] = useState<LoginState>("enter_email");
+    const [discoveredMethods, setDiscoveredMethods] = useState<LoginMethod[]>([]);
 
     useEffect(() => {
-        if (emailFromQuery) {
-            setEmail(emailFromQuery);
-            setShowPasswordLogin(true);
-        }
+        if (emailFromQuery) setEmail(emailFromQuery);
     }, [emailFromQuery]);
 
     useEffect(() => {
-        if (props.mode !== "login") {
-            setShowPasswordLogin(true);
+        if (props.mode === "login") {
+            setLoginState("enter_email");
+            setDiscoveredMethods([]);
+            setPassword("");
         }
     }, [props.mode]);
 
@@ -85,7 +104,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const subtitle = useMemo(() => {
         switch (props.mode) {
             case "login":
-                return t("subtitle", { defaultValue: "Choose a sign-in method" });
+                return t("subtitle", { defaultValue: "Continue to EmotiX" });
             case "signup":
                 return t("signupSubtitle", { defaultValue: "Sign up with email and verify it" });
             case "verify":
@@ -128,6 +147,56 @@ export function LoginForm(props: { mode: AuthMode }) {
         }
     }
 
+    async function runDiscover() {
+        const eNorm = normEmail(email);
+        if (!eNorm) return;
+
+        setBusy(true);
+        setErr(null);
+        setInfo(null);
+        setLoginState("discovering");
+
+        try {
+            const discovered = await discoverAuthMethods(eNorm);
+            const methods = fallbackMethods(discovered.methods);
+            setDiscoveredMethods(methods);
+            if (discovered.nextAction === "needs_verification") {
+                setLoginState("needs_verification");
+                setInformation(
+                    t("needsVerification", {
+                        defaultValue: "Please verify your email first. You can continue with verification.",
+                    })
+                );
+                return;
+            }
+            if (discovered.nextAction === "password") {
+                setLoginState("password_login");
+                return;
+            }
+            if (discovered.nextAction === "social") {
+                setLoginState("social_only");
+                setInformation(
+                    t("socialOnlyHint", {
+                        defaultValue: "This account uses social sign-in. Continue with your linked provider.",
+                    })
+                );
+                return;
+            }
+            setLoginState("choose_method");
+        } catch {
+            // Relaxed anti-enumeration UX fallback
+            setDiscoveredMethods(["password", "google", "facebook"]);
+            setLoginState("choose_method");
+            setInformation(
+                t("discoverFallback", {
+                    defaultValue: "Choose a sign-in method to continue.",
+                })
+            );
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setErr(null);
@@ -142,6 +211,19 @@ export function LoginForm(props: { mode: AuthMode }) {
                 if (!result.ok) {
                     if (result.code === "UserNotConfirmedException") {
                         go("verify", { email: eNorm, replace: true });
+                        return;
+                    }
+                    if (
+                        result.code === "NotAuthorizedException" &&
+                        discoveredMethods.length > 0 &&
+                        !discoveredMethods.includes("password")
+                    ) {
+                        setError(
+                            t("wrongMethodUseSocial", {
+                                defaultValue: "This account uses social sign-in. Continue with the linked provider.",
+                            })
+                        );
+                        setLoginState("social_only");
                         return;
                     }
                     setError(result.message);
@@ -219,29 +301,61 @@ export function LoginForm(props: { mode: AuthMode }) {
     const canSubmit = useMemo(() => {
         if (busy) return false;
         if (!email.trim()) return false;
-        if (props.mode === "login" || props.mode === "signup") return !!password;
+        if (props.mode === "login") return loginState === "password_login" && !!password;
+        if (props.mode === "signup") return !!password;
         if (props.mode === "verify") return !!code.trim();
         if (props.mode === "forgot") return true;
         if (props.mode === "reset") return !!code.trim() && !!newPassword;
         return false;
-    }, [busy, code, email, newPassword, password, props.mode]);
+    }, [busy, code, email, loginState, newPassword, password, props.mode]);
 
-    const showForm = props.mode !== "login" || showPasswordLogin;
+    const socialOnlyMethods = socialMethodsFrom(discoveredMethods);
+    const showLoginEmail = props.mode === "login" && loginState !== "choose_method" && loginState !== "social_only";
 
     return (
         <AuthCard title={title} subtitle={subtitle}>
-            {props.mode === "login" && !showPasswordLogin && (
-                <MethodChooser
-                    busy={busy}
-                    onChoosePassword={() => setShowPasswordLogin(true)}
-                    onChooseSocial={social}
-                />
+            {props.mode === "login" && (
+                <div className="space-y-3 mb-4 motion-fade-slide">
+                    {showLoginEmail && <EmailStep email={email} onEmailChange={setEmail} />}
+
+                    {loginState === "enter_email" && (
+                        <Button fullWidth onClick={runDiscover} disabled={busy || !email.trim()} type="button">
+                            {busy ? "Please wait..." : "Continue"}
+                        </Button>
+                    )}
+
+                    {loginState === "discovering" && <Notification tone="info" message="Checking available sign-in methods..." />}
+
+                    {loginState === "choose_method" && (
+                        <MethodChooser
+                            busy={busy}
+                            methods={discoveredMethods}
+                            onChoosePassword={() => setLoginState("password_login")}
+                            onChooseSocial={social}
+                        />
+                    )}
+
+                    {loginState === "social_only" && (
+                        <SocialButtons busy={busy} methods={socialOnlyMethods} onClick={social} />
+                    )}
+
+                    {loginState === "needs_verification" && (
+                        <div className="space-y-3">
+                            <Button fullWidth onClick={() => go("verify", { email: normEmail(email) })} type="button">
+                                Continue to verification
+                            </Button>
+                        </div>
+                    )}
+                </div>
             )}
 
-            {showForm && (
+            {err && <Notification tone="error" message={err} />}
+            {info && <Notification tone="success" message={info} />}
+
+            {(props.mode !== "login" || loginState === "password_login") && (
                 <div key={props.mode} className="motion-fade-slide">
                     <form onSubmit={onSubmit} className="space-y-3">
-                        <EmailStep email={email} onEmailChange={setEmail} />
+                        {props.mode !== "login" && <EmailStep email={email} onEmailChange={setEmail} />}
 
                         {(props.mode === "login" || props.mode === "signup") && (
                             <PasswordStep password={password} onPasswordChange={setPassword} mode={props.mode} />
@@ -275,9 +389,6 @@ export function LoginForm(props: { mode: AuthMode }) {
                             </>
                         )}
 
-                        {err && <Notification tone="error" message={err} />}
-                        {info && <Notification tone="success" message={info} />}
-
                         <Button fullWidth disabled={!canSubmit} type="submit">
                             {busy ? "Please wait..." : "Continue"}
                         </Button>
@@ -288,16 +399,21 @@ export function LoginForm(props: { mode: AuthMode }) {
             <div className="mt-4 flex items-center justify-between text-sm text-neutral-300">
                 {props.mode === "login" && (
                     <>
-                        {showPasswordLogin ? (
-                            <Button variant="link" onClick={() => setShowPasswordLogin(false)} disabled={busy} type="button">
-                                Back to methods
-                            </Button>
-                        ) : (
-                            <Button variant="link" onClick={() => go("signup")} disabled={busy} type="button">
-                                Create account
-                            </Button>
-                        )}
-                        <Button variant="link" onClick={() => go("forgot")} disabled={busy} type="button">
+                        <Button
+                            variant="link"
+                            onClick={() => {
+                                setErr(null);
+                                setInfo(null);
+                                setPassword("");
+                                setDiscoveredMethods([]);
+                                setLoginState("enter_email");
+                            }}
+                            disabled={busy}
+                            type="button"
+                        >
+                            Back
+                        </Button>
+                        <Button variant="link" onClick={() => go("forgot", { email: normEmail(email) })} disabled={busy} type="button">
                             Forgot password
                         </Button>
                     </>

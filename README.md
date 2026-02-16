@@ -174,6 +174,7 @@ Language can be changed in the auth card header (`src/app/auth/AuthCard.tsx`).
 - Shared UI primitives now live in `src/ui` (`Button`, `TextField`, `Notification`) and are the preferred base for new screens to keep styling consistent.
 - Auth UI is decomposed into focused components under `src/app/auth/components` for easier iteration (`EmailStep`, `PasswordStep`, `MethodChooser`).
 - Basic motion tokens are defined in `src/index.css` (`motion-fade-slide`, `motion-soft`) with `prefers-reduced-motion` handling.
+- Login now uses backend discovery (`POST /auth/discover`) to drive deterministic method states (`enter_email`, `choose_method`, `password_login`, `social_only`, `needs_verification`).
 
 ## 10. PWA Setup
 

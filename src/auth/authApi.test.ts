@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  discoverAuthMethods,
   debugSession,
   doSignOut,
+  getAuthMethods,
   isSignedIn,
   nativeConfirm,
   nativeConfirmReset,
@@ -9,6 +11,7 @@ import {
   nativeResend,
   nativeSignIn,
   nativeSignUp,
+  setPassword,
 } from "./authApi";
 
 const {
@@ -21,6 +24,7 @@ const {
   confirmResetPasswordMock,
   getCurrentUserMock,
   fetchAuthSessionMock,
+  fetchMock,
 } = vi.hoisted(() => ({
   signUpMock: vi.fn(),
   confirmSignUpMock: vi.fn(),
@@ -31,6 +35,7 @@ const {
   confirmResetPasswordMock: vi.fn(),
   getCurrentUserMock: vi.fn(),
   fetchAuthSessionMock: vi.fn(),
+  fetchMock: vi.fn(),
 }));
 
 // All Amplify boundaries are mocked so these tests validate only wrapper behavior.
@@ -57,6 +62,8 @@ describe("authApi", () => {
     confirmResetPasswordMock.mockReset();
     getCurrentUserMock.mockReset();
     fetchAuthSessionMock.mockReset();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   it("nativeSignUp returns ok on successful sign up", async () => {
@@ -174,5 +181,56 @@ describe("authApi", () => {
 
     // Failure means diagnostics tooling loses direct visibility into auth session shape.
     expect(result).toBe(session);
+  });
+
+  it("discoverAuthMethods posts email to backend discover endpoint", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ email: "dev@emotix.net", methods: ["password"], nextAction: "password" }),
+    });
+
+    const result = await discoverAuthMethods("dev@emotix.net");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/discover"),
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
+    expect(result.nextAction).toBe("password");
+  });
+
+  it("getAuthMethods sends bearer token and returns parsed payload", async () => {
+    fetchAuthSessionMock.mockResolvedValue({
+      tokens: { accessToken: { toString: () => "token-123" } },
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ methods: [{ method: "password", provider: "COGNITO", verified: true }] }),
+    });
+
+    const result = await getAuthMethods();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/methods"),
+      expect.objectContaining({
+        method: "GET",
+        headers: { authorization: "Bearer token-123" },
+      })
+    );
+    expect(result.methods[0].method).toBe("password");
+  });
+
+  it("setPassword returns ok false when backend rejects request", async () => {
+    fetchAuthSessionMock.mockResolvedValue({
+      tokens: { accessToken: { toString: () => "token-123" } },
+    });
+    fetchMock.mockResolvedValue({
+      ok: false,
+    });
+
+    const result = await setPassword("Password123!");
+
+    expect(result).toEqual({ ok: false, message: "Failed to set password" });
   });
 });
