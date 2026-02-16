@@ -24,12 +24,9 @@ import {
 
 export type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
 type LoginState =
-    | "enter_email"
-    | "discovering"
     | "choose_method"
     | "password_login"
-    | "social_only"
-    | "needs_verification";
+    | "social_only";
 
 const normEmail = (v: string) => v.trim().toLowerCase();
 
@@ -71,7 +68,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [err, setErr] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [loginState, setLoginState] = useState<LoginState>("enter_email");
+    const [loginState, setLoginState] = useState<LoginState>("choose_method");
     const [discoveredMethods, setDiscoveredMethods] = useState<LoginMethod[]>([]);
 
     useEffect(() => {
@@ -80,7 +77,7 @@ export function LoginForm(props: { mode: AuthMode }) {
 
     useEffect(() => {
         if (props.mode === "login") {
-            setLoginState("enter_email");
+            setLoginState("choose_method");
             setDiscoveredMethods([]);
             setPassword("");
         }
@@ -104,7 +101,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const subtitle = useMemo(() => {
         switch (props.mode) {
             case "login":
-                return t("subtitle", { defaultValue: "Continue to EmotiX" });
+                return t("subtitle", { defaultValue: "Choose a sign-in method" });
             case "signup":
                 return t("signupSubtitle", { defaultValue: "Sign up with email and verify it" });
             case "verify":
@@ -147,32 +144,14 @@ export function LoginForm(props: { mode: AuthMode }) {
         }
     }
 
-    async function runDiscover() {
+    async function runDiscoverForGuidance() {
         const eNorm = normEmail(email);
         if (!eNorm) return;
-
-        setBusy(true);
-        setErr(null);
-        setInfo(null);
-        setLoginState("discovering");
 
         try {
             const discovered = await discoverAuthMethods(eNorm);
             const methods = fallbackMethods(discovered.methods);
             setDiscoveredMethods(methods);
-            if (discovered.nextAction === "needs_verification") {
-                setLoginState("needs_verification");
-                setInformation(
-                    t("needsVerification", {
-                        defaultValue: "Please verify your email first. You can continue with verification.",
-                    })
-                );
-                return;
-            }
-            if (discovered.nextAction === "password") {
-                setLoginState("password_login");
-                return;
-            }
             if (discovered.nextAction === "social") {
                 setLoginState("social_only");
                 setInformation(
@@ -180,20 +159,12 @@ export function LoginForm(props: { mode: AuthMode }) {
                         defaultValue: "This account uses social sign-in. Continue with your linked provider.",
                     })
                 );
-                return;
+                return true;
             }
-            setLoginState("choose_method");
+            return false;
         } catch {
-            // Relaxed anti-enumeration UX fallback
             setDiscoveredMethods(["password", "google", "facebook"]);
-            setLoginState("choose_method");
-            setInformation(
-                t("discoverFallback", {
-                    defaultValue: "Choose a sign-in method to continue.",
-                })
-            );
-        } finally {
-            setBusy(false);
+            return false;
         }
     }
 
@@ -215,16 +186,17 @@ export function LoginForm(props: { mode: AuthMode }) {
                     }
                     if (
                         result.code === "NotAuthorizedException" &&
-                        discoveredMethods.length > 0 &&
-                        !discoveredMethods.includes("password")
+                        (discoveredMethods.length === 0 || discoveredMethods.includes("password"))
                     ) {
-                        setError(
-                            t("wrongMethodUseSocial", {
-                                defaultValue: "This account uses social sign-in. Continue with the linked provider.",
-                            })
-                        );
-                        setLoginState("social_only");
-                        return;
+                        const socialOnly = await runDiscoverForGuidance();
+                        if (socialOnly) {
+                            setError(
+                                t("wrongMethodUseSocial", {
+                                    defaultValue: "This account uses social sign-in. Continue with the linked provider.",
+                                })
+                            );
+                            return;
+                        }
                     }
                     setError(result.message);
                     return;
@@ -300,8 +272,7 @@ export function LoginForm(props: { mode: AuthMode }) {
 
     const canSubmit = useMemo(() => {
         if (busy) return false;
-        if (!email.trim()) return false;
-        if (props.mode === "login") return loginState === "password_login" && !!password;
+        if (props.mode === "login") return loginState === "password_login" && !!email.trim() && !!password;
         if (props.mode === "signup") return !!password;
         if (props.mode === "verify") return !!code.trim();
         if (props.mode === "forgot") return true;
@@ -310,7 +281,9 @@ export function LoginForm(props: { mode: AuthMode }) {
     }, [busy, code, email, loginState, newPassword, password, props.mode]);
 
     const socialOnlyMethods = socialMethodsFrom(discoveredMethods);
-    const showLoginEmail = props.mode === "login" && loginState !== "choose_method" && loginState !== "social_only";
+    const showLoginEmail = props.mode === "login" && loginState === "password_login";
+    const chooserMethods: LoginMethod[] =
+        discoveredMethods.length > 0 ? fallbackMethods(discoveredMethods) : ["password", "google", "facebook"];
 
     return (
         <AuthCard title={title} subtitle={subtitle}>
@@ -318,19 +291,15 @@ export function LoginForm(props: { mode: AuthMode }) {
                 <div className="space-y-3 mb-4 motion-fade-slide">
                     {showLoginEmail && <EmailStep email={email} onEmailChange={setEmail} />}
 
-                    {loginState === "enter_email" && (
-                        <Button fullWidth onClick={runDiscover} disabled={busy || !email.trim()} type="button">
-                            {busy ? "Please wait..." : "Continue"}
-                        </Button>
-                    )}
-
-                    {loginState === "discovering" && <Notification tone="info" message="Checking available sign-in methods..." />}
-
                     {loginState === "choose_method" && (
                         <MethodChooser
                             busy={busy}
-                            methods={discoveredMethods}
-                            onChoosePassword={() => setLoginState("password_login")}
+                            methods={chooserMethods}
+                            onChoosePassword={() => {
+                                setErr(null);
+                                setInfo(null);
+                                setLoginState("password_login");
+                            }}
                             onChooseSocial={social}
                         />
                     )}
@@ -339,13 +308,6 @@ export function LoginForm(props: { mode: AuthMode }) {
                         <SocialButtons busy={busy} methods={socialOnlyMethods} onClick={social} />
                     )}
 
-                    {loginState === "needs_verification" && (
-                        <div className="space-y-3">
-                            <Button fullWidth onClick={() => go("verify", { email: normEmail(email) })} type="button">
-                                Continue to verification
-                            </Button>
-                        </div>
-                    )}
                 </div>
             )}
 
@@ -405,8 +367,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                                 setErr(null);
                                 setInfo(null);
                                 setPassword("");
-                                setDiscoveredMethods([]);
-                                setLoginState("enter_email");
+                                setLoginState("choose_method");
                             }}
                             disabled={busy}
                             type="button"

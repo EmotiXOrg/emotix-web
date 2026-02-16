@@ -58,27 +58,18 @@ describe("LoginForm state machine", () => {
     });
 
     it("discovers methods and shows chooser", async () => {
-        const user = userEvent.setup();
-        discoverAuthMethodsMock.mockResolvedValue({
-            email: "dev@emotix.net",
-            methods: ["google", "password"],
-            nextAction: "choose_method",
-        });
-
         render(
             <MemoryRouter initialEntries={["/auth?mode=login"]}>
                 <LoginForm mode="login" />
             </MemoryRouter>
         );
 
-        await user.type(screen.getByLabelText("Email"), "dev@emotix.net");
-        await user.click(screen.getByRole("button", { name: "Continue" }));
-
-        expect(await screen.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Continue with Email" })).toBeInTheDocument();
     });
 
-    it("forces social-only path when discovery says social", async () => {
+    it("forces social-only path after wrong password when discovery says social", async () => {
         const user = userEvent.setup();
         discoverAuthMethodsMock.mockResolvedValue({
             email: "dev@emotix.net",
@@ -86,14 +77,22 @@ describe("LoginForm state machine", () => {
             nextAction: "social",
         });
 
+        nativeSignInMock.mockResolvedValue({
+            ok: false,
+            code: "NotAuthorizedException",
+            message: "Incorrect username or password.",
+        });
+
         render(
             <MemoryRouter initialEntries={["/auth?mode=login"]}>
                 <LoginForm mode="login" />
             </MemoryRouter>
         );
 
+        await user.click(screen.getByRole("button", { name: "Continue with Email" }));
         await user.type(screen.getByLabelText("Email"), "dev@emotix.net");
-        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.type(screen.getByLabelText("Password"), "Password123!");
+        await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
 
         expect(await screen.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "Continue with Email" })).not.toBeInTheDocument();
@@ -114,11 +113,10 @@ describe("LoginForm state machine", () => {
             </MemoryRouter>
         );
 
+        await user.click(screen.getByRole("button", { name: "Continue with Email" }));
         await user.type(screen.getByLabelText("Email"), "DEV@emotix.net");
-        await user.click(screen.getByRole("button", { name: "Continue" }));
-        await user.click(await screen.findByRole("button", { name: "Continue with Email" }));
         await user.type(screen.getByLabelText("Password"), "Password123!");
-        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
 
         await waitFor(() => {
             expect(nativeSignInMock).toHaveBeenCalledWith("dev@emotix.net", "Password123!");
