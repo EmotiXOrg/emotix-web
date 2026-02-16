@@ -1,4 +1,5 @@
 import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
+import { AccountSettingsPanel } from "./settings/AccountSettingsPanel";
 
 function Screen({ title }: { title: string }) {
     return (
@@ -20,7 +21,7 @@ export function AppShell() {
             <Routes>
                 <Route path="/" element={<Screen title="Tonight" />} />
                 <Route path="explore" element={<Screen title="Explore" />} />
-                <Route path="profile" element={<Screen title="Profile" />} />
+                <Route path="profile" element={<AccountSettingsPanel />} />
                 <Route path="history" element={<Screen title="History" />} />
             </Routes>
 

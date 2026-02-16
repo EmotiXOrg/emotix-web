@@ -175,6 +175,7 @@ Language can be changed in the auth card header (`src/app/auth/AuthCard.tsx`).
 - Auth UI is decomposed into focused components under `src/app/auth/components` for easier iteration (`EmailStep`, `PasswordStep`, `MethodChooser`).
 - Basic motion tokens are defined in `src/index.css` (`motion-fade-slide`, `motion-soft`) with `prefers-reduced-motion` handling.
 - Login now uses backend discovery (`POST /auth/discover`) to drive deterministic method states (`enter_email`, `choose_method`, `password_login`, `social_only`, `needs_verification`).
+- Profile route now includes account settings for linked sign-in methods and password enablement (`src/app/settings/AccountSettingsPanel.tsx`).
 
 ## 10. PWA Setup
 
