@@ -1,1 +1,40 @@
-{}
+{
+    "nav": {
+        "tonight": "Heute",
+        "explore": "Entdecken",
+        "profile": "Profil",
+        "history": "Verlauf",
+        "logout": "Abmelden"
+    },
+    "app": {
+        "placeholder": "Platzhalter fur Ihre Haupt-App-Oberflache."
+    },
+    "settings": {
+        "subtitle": "Verknupfte Anmeldemethoden und Kontosicherheit.",
+        "accountEmail": "Konto-E-Mail",
+        "unavailable": "Nicht verfugbar",
+        "connectedMethods": "Verknupfte Anmeldemethoden",
+        "refresh": "Aktualisieren",
+        "loadingMethods": "Methoden werden geladen...",
+        "noMethods": "Noch keine Methoden erkannt.",
+        "linkedAt": "Verknupft",
+        "verified": "Verifiziert",
+        "unverified": "Nicht verifiziert",
+        "socialOnlyHelp": "Dieses Konto nutzt derzeit nur Social Login. Setzen Sie ein Passwort, um E-Mail-Login zu aktivieren.",
+        "newPassword": "Neues Passwort",
+        "confirmPassword": "Passwort bestatigen",
+        "setPassword": "Passwort setzen",
+        "info": {
+            "passwordEnabled": "Passwort fur dieses Konto aktiviert."
+        },
+        "error": {
+            "load": "Verknupfte Anmeldemethoden konnten nicht geladen werden.",
+            "passwordMismatch": "Passworter stimmen nicht uberein."
+        },
+        "method": {
+            "password": "E-Mail + Passwort",
+            "google": "Google",
+            "facebook": "Facebook"
+        }
+    }
+}

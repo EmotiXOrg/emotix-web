@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../../ui/Button";
 import { Notification } from "../../ui/Notification";
 import { PasswordStep } from "../auth/components/PasswordStep";
-import { getAuthMethods, setPassword, type LoginMethod } from "../../auth/authApi";
+import { TextField } from "../../ui/TextField";
+import { getAuthMethods, getCurrentUserEmail, setPassword, type LoginMethod } from "../../auth/authApi";
+import { useTranslation } from "react-i18next";
 
 type MethodItem = {
     method: LoginMethod;
@@ -12,37 +14,41 @@ type MethodItem = {
 };
 
 function methodLabel(method: LoginMethod) {
-    if (method === "password") return "Email + Password";
-    if (method === "google") return "Google";
-    return "Facebook";
+    if (method === "password") return "settings.method.password";
+    if (method === "google") return "settings.method.google";
+    return "settings.method.facebook";
 }
 
 export function AccountSettingsPanel() {
+    const { t } = useTranslation("common");
     const [busy, setBusy] = useState(true);
     const [savingPassword, setSavingPassword] = useState(false);
     const [methods, setMethods] = useState<MethodItem[]>([]);
+    const [profileEmail, setProfileEmail] = useState<string | null>(null);
     const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [err, setErr] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
 
     const hasPasswordMethod = useMemo(() => methods.some((m) => m.method === "password"), [methods]);
 
-    async function loadMethods() {
+    const loadMethods = useCallback(async () => {
         setBusy(true);
         setErr(null);
         try {
-            const res = await getAuthMethods();
+            const [res, email] = await Promise.all([getAuthMethods(), getCurrentUserEmail()]);
             setMethods(res.methods);
+            setProfileEmail(email);
         } catch {
-            setErr("Failed to load linked sign-in methods.");
+            setErr(t("settings.error.load", { defaultValue: "Failed to load linked sign-in methods." }));
         } finally {
             setBusy(false);
         }
-    }
+    }, [t]);
 
     useEffect(() => {
         void loadMethods();
-    }, []);
+    }, [loadMethods]);
 
     async function onSetPassword(e: React.FormEvent) {
         e.preventDefault();
@@ -50,13 +56,18 @@ export function AccountSettingsPanel() {
         setErr(null);
         setInfo(null);
         try {
+            if (newPassword !== confirmPassword) {
+                setErr(t("settings.error.passwordMismatch", { defaultValue: "Passwords do not match." }));
+                return;
+            }
             const res = await setPassword(newPassword);
             if (!res.ok) {
                 setErr(res.message);
                 return;
             }
-            setInfo("Password enabled for this account.");
+            setInfo(t("settings.info.passwordEnabled", { defaultValue: "Password enabled for this account." }));
             setNewPassword("");
+            setConfirmPassword("");
             await loadMethods();
         } finally {
             setSavingPassword(false);
@@ -65,21 +76,31 @@ export function AccountSettingsPanel() {
 
     return (
         <div className="p-4 pb-24 motion-fade-slide">
-            <div className="text-2xl font-semibold">Profile</div>
-            <div className="text-neutral-400 mt-2">Connected sign-in methods and account security settings.</div>
+            <div className="text-2xl font-semibold">{t("nav.profile", { defaultValue: "Profile" })}</div>
+            <div className="text-neutral-400 mt-2">
+                {t("settings.subtitle", {
+                    defaultValue: "Connected sign-in methods and account security settings.",
+                })}
+            </div>
+            <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900/40 px-3 py-2">
+                <div className="text-xs text-neutral-400">{t("settings.accountEmail", { defaultValue: "Account email" })}</div>
+                <div className="text-sm font-medium">{profileEmail ?? t("settings.unavailable", { defaultValue: "Unavailable" })}</div>
+            </div>
 
             <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                    <div className="text-lg font-medium">Connected sign-in methods</div>
+                    <div className="text-lg font-medium">
+                        {t("settings.connectedMethods", { defaultValue: "Connected sign-in methods" })}
+                    </div>
                     <Button variant="link" type="button" onClick={loadMethods} disabled={busy || savingPassword}>
-                        Refresh
+                        {t("settings.refresh", { defaultValue: "Refresh" })}
                     </Button>
                 </div>
 
                 {busy ? (
-                    <div className="text-sm text-neutral-400">Loading methods...</div>
+                    <div className="text-sm text-neutral-400">{t("settings.loadingMethods", { defaultValue: "Loading methods..." })}</div>
                 ) : methods.length === 0 ? (
-                    <div className="text-sm text-neutral-400">No methods detected yet.</div>
+                    <div className="text-sm text-neutral-400">{t("settings.noMethods", { defaultValue: "No methods detected yet." })}</div>
                 ) : (
                     <div className="space-y-2">
                         {methods.map((item) => (
@@ -88,9 +109,11 @@ export function AccountSettingsPanel() {
                                 className="rounded-xl border border-neutral-800 px-3 py-2 flex items-center justify-between"
                             >
                                 <div>
-                                    <div className="font-medium">{methodLabel(item.method)}</div>
+                                    <div className="font-medium">{t(methodLabel(item.method), { defaultValue: item.method })}</div>
                                     <div className="text-xs text-neutral-400">
-                                        {item.linkedAt ? `Linked: ${new Date(item.linkedAt).toLocaleString()}` : "Linked"}
+                                        {item.linkedAt
+                                            ? `${t("settings.linkedAt", { defaultValue: "Linked" })}: ${new Date(item.linkedAt).toLocaleString()}`
+                                            : t("settings.linkedAt", { defaultValue: "Linked" })}
                                     </div>
                                 </div>
                                 <div
@@ -100,7 +123,9 @@ export function AccountSettingsPanel() {
                                             : "border-amber-500/60 text-amber-300"
                                     }`}
                                 >
-                                    {item.verified ? "Verified" : "Unverified"}
+                                    {item.verified
+                                        ? t("settings.verified", { defaultValue: "Verified" })
+                                        : t("settings.unverified", { defaultValue: "Unverified" })}
                                 </div>
                             </div>
                         ))}
@@ -110,16 +135,32 @@ export function AccountSettingsPanel() {
                 {!hasPasswordMethod && (
                     <form onSubmit={onSetPassword} className="space-y-3 border-t border-neutral-800 pt-4">
                         <div className="text-sm text-neutral-300">
-                            This account currently uses social sign-in only. Set a password to enable email login.
+                            {t("settings.socialOnlyHelp", {
+                                defaultValue: "This account currently uses social sign-in only. Set a password to enable email login.",
+                            })}
                         </div>
                         <PasswordStep
                             password={newPassword}
                             onPasswordChange={setNewPassword}
                             mode="reset"
-                            label="New password"
+                            label={t("settings.newPassword", { defaultValue: "New password" })}
                         />
-                        <Button type="submit" fullWidth disabled={savingPassword || newPassword.length < 10}>
-                            {savingPassword ? "Please wait..." : "Set password"}
+                        <TextField
+                            label={t("settings.confirmPassword", { defaultValue: "Confirm password" })}
+                            placeholder={t("settings.confirmPassword", { defaultValue: "Confirm password" })}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            type="password"
+                            autoComplete="new-password"
+                        />
+                        <Button
+                            type="submit"
+                            fullWidth
+                            disabled={savingPassword || newPassword.length < 10 || confirmPassword.length < 10}
+                        >
+                            {savingPassword
+                                ? t("auth:pleaseWait", { defaultValue: "Please wait..." })
+                                : t("settings.setPassword", { defaultValue: "Set password" })}
                         </Button>
                     </form>
                 )}

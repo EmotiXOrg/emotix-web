@@ -1,10 +1,12 @@
 import { Button } from "../../../ui/Button";
+import { useTranslation } from "react-i18next";
 
 export function SocialButtons(props: {
     busy: boolean;
     methods: Array<"google" | "facebook">;
     onClick: (provider: "Google" | "Facebook") => void;
 }) {
+    const { t } = useTranslation("auth");
     return (
         <div className="space-y-3 mb-6 motion-fade-slide">
             {props.methods.includes("google") && (
@@ -15,7 +17,7 @@ export function SocialButtons(props: {
                     disabled={props.busy}
                     type="button"
                 >
-                    Continue with Google
+                    {t("continue_google", { defaultValue: "Continue with Google" })}
                 </Button>
             )}
             {props.methods.includes("facebook") && (
@@ -26,7 +28,7 @@ export function SocialButtons(props: {
                     disabled={props.busy}
                     type="button"
                 >
-                    Continue with Facebook
+                    {t("continue_facebook", { defaultValue: "Continue with Facebook" })}
                 </Button>
             )}
         </div>

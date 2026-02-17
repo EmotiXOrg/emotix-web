@@ -1,1 +1,40 @@
-{}
+{
+    "nav": {
+        "tonight": "Сегодня",
+        "explore": "Обзор",
+        "profile": "Профиль",
+        "history": "История",
+        "logout": "Выйти"
+    },
+    "app": {
+        "placeholder": "Здесь будет основной интерфейс приложения."
+    },
+    "settings": {
+        "subtitle": "Привязанные способы входа и безопасность аккаунта.",
+        "accountEmail": "Email аккаунта",
+        "unavailable": "Недоступно",
+        "connectedMethods": "Привязанные способы входа",
+        "refresh": "Обновить",
+        "loadingMethods": "Загрузка способов входа...",
+        "noMethods": "Способы входа пока не найдены.",
+        "linkedAt": "Привязано",
+        "verified": "Подтверждено",
+        "unverified": "Не подтверждено",
+        "socialOnlyHelp": "Сейчас для этого аккаунта доступен только вход через соцсети. Установите пароль, чтобы включить вход по email.",
+        "newPassword": "Новый пароль",
+        "confirmPassword": "Подтвердите пароль",
+        "setPassword": "Установить пароль",
+        "info": {
+            "passwordEnabled": "Пароль для этого аккаунта установлен."
+        },
+        "error": {
+            "load": "Не удалось загрузить привязанные способы входа.",
+            "passwordMismatch": "Пароли не совпадают."
+        },
+        "method": {
+            "password": "Email + Пароль",
+            "google": "Google",
+            "facebook": "Facebook"
+        }
+    }
+}

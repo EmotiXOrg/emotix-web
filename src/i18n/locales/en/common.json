@@ -1,1 +1,40 @@
-{}
+{
+    "nav": {
+        "tonight": "Tonight",
+        "explore": "Explore",
+        "profile": "Profile",
+        "history": "History",
+        "logout": "Logout"
+    },
+    "app": {
+        "placeholder": "Placeholder for your big app UI."
+    },
+    "settings": {
+        "subtitle": "Connected sign-in methods and account security settings.",
+        "accountEmail": "Account email",
+        "unavailable": "Unavailable",
+        "connectedMethods": "Connected sign-in methods",
+        "refresh": "Refresh",
+        "loadingMethods": "Loading methods...",
+        "noMethods": "No methods detected yet.",
+        "linkedAt": "Linked",
+        "verified": "Verified",
+        "unverified": "Unverified",
+        "socialOnlyHelp": "This account currently uses social sign-in only. Set a password to enable email login.",
+        "newPassword": "New password",
+        "confirmPassword": "Confirm password",
+        "setPassword": "Set password",
+        "info": {
+            "passwordEnabled": "Password enabled for this account."
+        },
+        "error": {
+            "load": "Failed to load linked sign-in methods.",
+            "passwordMismatch": "Passwords do not match."
+        },
+        "method": {
+            "password": "Email + Password",
+            "google": "Google",
+            "facebook": "Facebook"
+        }
+    }
+}

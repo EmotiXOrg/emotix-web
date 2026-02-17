@@ -24,6 +24,7 @@ const {
   confirmResetPasswordMock,
   getCurrentUserMock,
   fetchAuthSessionMock,
+  fetchUserAttributesMock,
   fetchMock,
 } = vi.hoisted(() => ({
   signUpMock: vi.fn(),
@@ -35,6 +36,7 @@ const {
   confirmResetPasswordMock: vi.fn(),
   getCurrentUserMock: vi.fn(),
   fetchAuthSessionMock: vi.fn(),
+  fetchUserAttributesMock: vi.fn(),
   fetchMock: vi.fn(),
 }));
 
@@ -48,6 +50,7 @@ vi.mock("aws-amplify/auth", () => ({
   resetPassword: resetPasswordMock,
   confirmResetPassword: confirmResetPasswordMock,
   getCurrentUser: getCurrentUserMock,
+  fetchUserAttributes: fetchUserAttributesMock,
   fetchAuthSession: fetchAuthSessionMock,
 }));
 
@@ -61,6 +64,7 @@ describe("authApi", () => {
     resetPasswordMock.mockReset();
     confirmResetPasswordMock.mockReset();
     getCurrentUserMock.mockReset();
+    fetchUserAttributesMock.mockReset();
     fetchAuthSessionMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
@@ -232,5 +236,14 @@ describe("authApi", () => {
     const result = await setPassword("Password123!");
 
     expect(result).toEqual({ ok: false, message: "Failed to set password" });
+  });
+
+  it("getCurrentUserEmail returns email when available", async () => {
+    const { getCurrentUserEmail } = await import("./authApi");
+    fetchUserAttributesMock.mockResolvedValue({ email: "dev@emotix.net" });
+
+    const result = await getCurrentUserEmail();
+
+    expect(result).toBe("dev@emotix.net");
   });
 });

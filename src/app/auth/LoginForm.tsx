@@ -192,7 +192,8 @@ export function LoginForm(props: { mode: AuthMode }) {
                         if (socialOnly) {
                             setError(
                                 t("wrongMethodUseSocial", {
-                                    defaultValue: "This account uses social sign-in. Continue with the linked provider.",
+                                    defaultValue:
+                                        "This email is linked to social sign-in. Continue with Google/Facebook, then set password in Profile.",
                                 })
                             );
                             return;
@@ -325,8 +326,8 @@ export function LoginForm(props: { mode: AuthMode }) {
 
                         {props.mode === "verify" && (
                             <TextField
-                                label="Verification code"
-                                placeholder="Verification code"
+                                label={t("verificationCode", { defaultValue: "Verification code" })}
+                                placeholder={t("verificationCode", { defaultValue: "Verification code" })}
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
                                 inputMode="numeric"
@@ -336,8 +337,8 @@ export function LoginForm(props: { mode: AuthMode }) {
                         {props.mode === "reset" && (
                             <>
                                 <TextField
-                                    label="Reset code"
-                                    placeholder="Reset code"
+                                    label={t("resetCode", { defaultValue: "Reset code" })}
+                                    placeholder={t("resetCode", { defaultValue: "Reset code" })}
                                     value={code}
                                     onChange={(e) => setCode(e.target.value)}
                                     inputMode="numeric"
@@ -346,13 +347,15 @@ export function LoginForm(props: { mode: AuthMode }) {
                                     password={newPassword}
                                     onPasswordChange={setNewPassword}
                                     mode="reset"
-                                    label="New password"
+                                    label={t("newPassword", { defaultValue: "New password" })}
                                 />
                             </>
                         )}
 
                         <Button fullWidth disabled={!canSubmit} type="submit">
-                            {busy ? "Please wait..." : "Continue"}
+                            {busy
+                                ? t("pleaseWait", { defaultValue: "Please wait..." })
+                                : t("continue", { defaultValue: "Continue" })}
                         </Button>
                     </form>
                 </div>
@@ -372,10 +375,10 @@ export function LoginForm(props: { mode: AuthMode }) {
                             disabled={busy}
                             type="button"
                         >
-                            Back
+                            {t("back", { defaultValue: "Back" })}
                         </Button>
                         <Button variant="link" onClick={() => go("forgot", { email: normEmail(email) })} disabled={busy} type="button">
-                            Forgot password
+                            {t("forgotPassword", { defaultValue: "Forgot password" })}
                         </Button>
                     </>
                 )}
@@ -383,7 +386,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                 {props.mode === "signup" && (
                     <>
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
-                            Back to login
+                            {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
                         <span />
                     </>
@@ -392,10 +395,10 @@ export function LoginForm(props: { mode: AuthMode }) {
                 {props.mode === "verify" && (
                     <>
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
-                            Back to login
+                            {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
                         <Button variant="link" onClick={onResendCode} disabled={busy || !email} type="button">
-                            Resend code
+                            {t("resendCode", { defaultValue: "Resend code" })}
                         </Button>
                     </>
                 )}
@@ -403,7 +406,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                 {props.mode === "forgot" && (
                     <>
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
-                            Back to login
+                            {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
                         <span />
                     </>
@@ -412,7 +415,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                 {props.mode === "reset" && (
                     <>
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
-                            Back to login
+                            {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
                         <span />
                     </>

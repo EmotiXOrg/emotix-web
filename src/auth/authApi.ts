@@ -8,6 +8,7 @@ import {
     resetPassword,
     confirmResetPassword,
     getCurrentUser,
+    fetchUserAttributes,
     fetchAuthSession,
 } from "aws-amplify/auth";
 
@@ -155,6 +156,19 @@ export async function isSignedIn(): Promise<boolean> {
 export async function debugSession(): Promise<Awaited<ReturnType<typeof fetchAuthSession>>> {
     const s = await fetchAuthSession();
     return s;
+}
+
+export async function getCurrentUserEmail(): Promise<string | null> {
+    try {
+        const attrs = await fetchUserAttributes();
+        const email = attrs.email;
+        if (typeof email === "string" && email.trim()) {
+            return email;
+        }
+        return null;
+    } catch {
+        return null;
+    }
 }
 
 export async function discoverAuthMethods(email: string): Promise<AuthDiscoverResponse> {
