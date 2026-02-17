@@ -12,6 +12,7 @@
     "settings": {
         "subtitle": "Привязанные способы входа и безопасность аккаунта.",
         "accountEmail": "Email аккаунта",
+        "languageLabel": "Язык",
         "unavailable": "Недоступно",
         "connectedMethods": "Привязанные способы входа",
         "refresh": "Обновить",
@@ -35,6 +36,11 @@
             "password": "Email + Пароль",
             "google": "Google",
             "facebook": "Facebook"
+        },
+        "language": {
+            "en": "Английский",
+            "de": "Немецкий",
+            "ru": "Русский"
         }
     }
 }

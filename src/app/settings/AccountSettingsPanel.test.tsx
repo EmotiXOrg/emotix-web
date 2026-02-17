@@ -33,6 +33,7 @@ describe("AccountSettingsPanel", () => {
         expect(await screen.findByText("Google")).toBeInTheDocument();
         expect(screen.getByText("dev@emotix.net")).toBeInTheDocument();
         expect(screen.getByText("Verified")).toBeInTheDocument();
+        expect(screen.getByRole("combobox", { name: "Language" })).toBeInTheDocument();
     });
 
     it("shows set-password form when password method is missing and submits", async () => {

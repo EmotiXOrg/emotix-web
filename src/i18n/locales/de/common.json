@@ -12,6 +12,7 @@
     "settings": {
         "subtitle": "Verknupfte Anmeldemethoden und Kontosicherheit.",
         "accountEmail": "Konto-E-Mail",
+        "languageLabel": "Sprache",
         "unavailable": "Nicht verfugbar",
         "connectedMethods": "Verknupfte Anmeldemethoden",
         "refresh": "Aktualisieren",
@@ -35,6 +36,11 @@
             "password": "E-Mail + Passwort",
             "google": "Google",
             "facebook": "Facebook"
+        },
+        "language": {
+            "en": "Englisch",
+            "de": "Deutsch",
+            "ru": "Russisch"
         }
     }
 }

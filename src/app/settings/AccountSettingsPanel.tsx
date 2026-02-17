@@ -5,6 +5,7 @@ import { PasswordStep } from "../auth/components/PasswordStep";
 import { TextField } from "../../ui/TextField";
 import { getAuthMethods, getCurrentUserEmail, setPassword, type LoginMethod } from "../../auth/authApi";
 import { useTranslation } from "react-i18next";
+import { setLanguage, type SupportedLanguage } from "../../i18n";
 
 type MethodItem = {
     method: LoginMethod;
@@ -20,7 +21,7 @@ function methodLabel(method: LoginMethod) {
 }
 
 export function AccountSettingsPanel() {
-    const { t } = useTranslation("common");
+    const { t, i18n } = useTranslation("common");
     const [busy, setBusy] = useState(true);
     const [savingPassword, setSavingPassword] = useState(false);
     const [methods, setMethods] = useState<MethodItem[]>([]);
@@ -76,7 +77,22 @@ export function AccountSettingsPanel() {
 
     return (
         <div className="p-4 pb-24 motion-fade-slide">
-            <div className="text-2xl font-semibold">{t("nav.profile", { defaultValue: "Profile" })}</div>
+            <div className="flex items-start justify-between gap-4">
+                <div className="text-2xl font-semibold">{t("nav.profile", { defaultValue: "Profile" })}</div>
+                <div className="space-y-1">
+                    <div className="text-xs text-neutral-400">{t("settings.languageLabel", { defaultValue: "Language" })}</div>
+                    <select
+                        className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-sm"
+                        value={i18n.language}
+                        onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
+                        aria-label={t("settings.languageLabel", { defaultValue: "Language" })}
+                    >
+                        <option value="en">{t("settings.language.en", { defaultValue: "English" })}</option>
+                        <option value="de">{t("settings.language.de", { defaultValue: "Deutsch" })}</option>
+                        <option value="ru">{t("settings.language.ru", { defaultValue: "Русский" })}</option>
+                    </select>
+                </div>
+            </div>
             <div className="text-neutral-400 mt-2">
                 {t("settings.subtitle", {
                     defaultValue: "Connected sign-in methods and account security settings.",

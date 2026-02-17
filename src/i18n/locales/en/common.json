@@ -12,6 +12,7 @@
     "settings": {
         "subtitle": "Connected sign-in methods and account security settings.",
         "accountEmail": "Account email",
+        "languageLabel": "Language",
         "unavailable": "Unavailable",
         "connectedMethods": "Connected sign-in methods",
         "refresh": "Refresh",
@@ -35,6 +36,11 @@
             "password": "Email + Password",
             "google": "Google",
             "facebook": "Facebook"
+        },
+        "language": {
+            "en": "English",
+            "de": "Deutsch",
+            "ru": "Russian"
         }
     }
 }
