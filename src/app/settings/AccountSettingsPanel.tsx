@@ -3,6 +3,7 @@ import { Button } from "../../ui/Button";
 import { Notification } from "../../ui/Notification";
 import { PasswordStep } from "../auth/components/PasswordStep";
 import { TextField } from "../../ui/TextField";
+import { Skeleton, SkeletonText } from "../../ui/Skeleton";
 import { getAuthMethods, getCurrentUserEmail, setPassword, type LoginMethod } from "../../auth/authApi";
 import { useTranslation } from "react-i18next";
 import { setLanguage, type SupportedLanguage } from "../../i18n";
@@ -34,13 +35,13 @@ export function AccountSettingsPanel() {
 
     const hasPasswordMethod = useMemo(() => methods.some((m) => m.method === "password"), [methods]);
 
-    const loadMethods = useCallback(async () => {
+    const loadMethods = useCallback(async (options?: { forceRefresh?: boolean }) => {
         setBusy(true);
         setErr(null);
         const email = await getCurrentUserEmail();
         setProfileEmail(email);
         try {
-            const res = await getAuthMethods();
+            const res = await getAuthMethods(options);
             setMethods(res.methods);
         } catch {
             setErr(t("settings.error.load", { defaultValue: "Failed to load linked sign-in methods." }));
@@ -110,13 +111,26 @@ export function AccountSettingsPanel() {
                     <div className="text-lg font-medium">
                         {t("settings.connectedMethods", { defaultValue: "Connected sign-in methods" })}
                     </div>
-                    <Button variant="link" type="button" onClick={loadMethods} disabled={busy || savingPassword}>
+                    <Button
+                        variant="link"
+                        type="button"
+                        onClick={() => void loadMethods({ forceRefresh: true })}
+                        disabled={busy || savingPassword}
+                    >
                         {t("settings.refresh", { defaultValue: "Refresh" })}
                     </Button>
                 </div>
 
                 {busy ? (
-                    <div className="text-sm text-neutral-400">{t("settings.loadingMethods", { defaultValue: "Loading methods..." })}</div>
+                    <div className="space-y-2">
+                        <div className="rounded-xl border border-neutral-800 px-3 py-2">
+                            <SkeletonText lines={2} />
+                        </div>
+                        <div className="rounded-xl border border-neutral-800 px-3 py-2">
+                            <SkeletonText lines={2} />
+                        </div>
+                        <Skeleton className="h-9 w-28" />
+                    </div>
                 ) : methods.length === 0 ? (
                     <div className="text-sm text-neutral-400">{t("settings.noMethods", { defaultValue: "No methods detected yet." })}</div>
                 ) : (

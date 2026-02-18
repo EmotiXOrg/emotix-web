@@ -14,6 +14,7 @@ import {
   nativeSignUp,
   startPasswordSetup,
   setPassword,
+  __resetAuthMethodsCacheForTests,
 } from "./authApi";
 
 const {
@@ -70,6 +71,7 @@ describe("authApi", () => {
     fetchAuthSessionMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    __resetAuthMethodsCacheForTests();
   });
 
   it("nativeSignUp returns ok on successful sign up", async () => {
@@ -225,6 +227,30 @@ describe("authApi", () => {
       })
     );
     expect(result.methods[0].method).toBe("password");
+  });
+
+  it("getAuthMethods uses short-lived cache unless forceRefresh is true", async () => {
+    fetchAuthSessionMock.mockResolvedValue({
+      tokens: { accessToken: { toString: () => "token-123" } },
+    });
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ methods: [{ method: "password", provider: "COGNITO", verified: true }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ methods: [{ method: "google", provider: "Google", verified: true }] }),
+      });
+
+    const first = await getAuthMethods();
+    const second = await getAuthMethods();
+    const forced = await getAuthMethods({ forceRefresh: true });
+
+    expect(first.methods[0].method).toBe("password");
+    expect(second.methods[0].method).toBe("password");
+    expect(forced.methods[0].method).toBe("google");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("setPassword returns ok false when backend rejects request", async () => {

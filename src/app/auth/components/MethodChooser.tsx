@@ -1,5 +1,6 @@
 import { Button } from "../../../ui/Button";
 import { useTranslation } from "react-i18next";
+import { Skeleton } from "../../../ui/Skeleton";
 
 export function MethodChooser(props: {
     busy: boolean;
@@ -10,6 +11,21 @@ export function MethodChooser(props: {
     const { t } = useTranslation("auth");
     const hasSocial = props.methods.includes("google") || props.methods.includes("facebook");
     const hasPassword = props.methods.includes("password");
+
+    if (props.busy) {
+        return (
+            <div className="space-y-3 motion-fade-slide" aria-hidden="true">
+                <Skeleton className="h-10 w-full rounded-xl" />
+                <Skeleton className="h-10 w-full rounded-xl" />
+                <div className="flex items-center gap-3 my-5">
+                    <div className="h-px bg-neutral-800 flex-1" />
+                    <Skeleton className="h-3 w-8 rounded" />
+                    <div className="h-px bg-neutral-800 flex-1" />
+                </div>
+                <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-3 motion-fade-slide">

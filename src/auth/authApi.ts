@@ -40,6 +40,12 @@ export type AuthMethodsResponse = {
     }>;
 };
 
+type AuthMethodsCacheEntry = {
+    expiresAt: number;
+    token: string;
+    value: AuthMethodsResponse;
+};
+
 type AmplifyErrorLike = {
     name?: unknown;
     message?: unknown;
@@ -57,6 +63,13 @@ function toAuthError(e: unknown): AuthResult {
 
 function getApiBaseUrl(): string {
     return (import.meta.env.VITE_API_BASE_URL as string).replace(/\/+$/, "");
+}
+
+const AUTH_METHODS_CACHE_TTL_MS = 60_000;
+let authMethodsCache: AuthMethodsCacheEntry | null = null;
+
+export function __resetAuthMethodsCacheForTests() {
+    authMethodsCache = null;
 }
 
 async function getAccessTokenOrThrow(): Promise<string> {
@@ -205,8 +218,18 @@ export async function discoverAuthMethods(email: string): Promise<AuthDiscoverRe
     return data;
 }
 
-export async function getAuthMethods(): Promise<AuthMethodsResponse> {
+export async function getAuthMethods(options?: { forceRefresh?: boolean }): Promise<AuthMethodsResponse> {
     const token = await getAccessTokenOrThrow();
+    const now = Date.now();
+    if (
+        !options?.forceRefresh &&
+        authMethodsCache &&
+        authMethodsCache.token === token &&
+        authMethodsCache.expiresAt > now
+    ) {
+        return authMethodsCache.value;
+    }
+
     const res = await fetch(`${getApiBaseUrl()}/auth/methods`, {
         method: "GET",
         headers: {
@@ -216,7 +239,13 @@ export async function getAuthMethods(): Promise<AuthMethodsResponse> {
     if (!res.ok) {
         throw new Error("Failed to load auth methods");
     }
-    return (await res.json()) as AuthMethodsResponse;
+    const value = (await res.json()) as AuthMethodsResponse;
+    authMethodsCache = {
+        token,
+        value,
+        expiresAt: now + AUTH_METHODS_CACHE_TTL_MS,
+    };
+    return value;
 }
 
 export async function setPassword(newPassword: string): Promise<AuthResult> {
@@ -233,6 +262,7 @@ export async function setPassword(newPassword: string): Promise<AuthResult> {
         if (!res.ok) {
             return { ok: false, message: "Failed to set password" };
         }
+        authMethodsCache = null;
         return { ok: true };
     } catch (e) {
         return toAuthError(e);
