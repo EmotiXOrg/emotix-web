@@ -3,6 +3,7 @@ import {
   discoverAuthMethods,
   debugSession,
   doSignOut,
+  completePasswordSetup,
   getAuthMethods,
   isSignedIn,
   nativeConfirm,
@@ -11,6 +12,7 @@ import {
   nativeResend,
   nativeSignIn,
   nativeSignUp,
+  startPasswordSetup,
   setPassword,
 } from "./authApi";
 
@@ -245,5 +247,25 @@ describe("authApi", () => {
     const result = await getCurrentUserEmail();
 
     expect(result).toBe("dev@emotix.net");
+  });
+
+  it("startPasswordSetup posts email to backend", async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+    const result = await startPasswordSetup("dev@emotix.net");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/password-setup/start"),
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("completePasswordSetup posts code and new password", async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+    const result = await completePasswordSetup("dev@emotix.net", "123456", "Password123!");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/password-setup/complete"),
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(result).toEqual({ ok: true });
   });
 });

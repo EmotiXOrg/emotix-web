@@ -10,11 +10,13 @@ const {
     discoverAuthMethodsMock,
     nativeSignInMock,
     signInWithRedirectMock,
+    startPasswordSetupMock,
 } = vi.hoisted(() => ({
     navigateMock: vi.fn(),
     discoverAuthMethodsMock: vi.fn(),
     nativeSignInMock: vi.fn(),
     signInWithRedirectMock: vi.fn(),
+    startPasswordSetupMock: vi.fn(),
 }));
 
 vi.mock("aws-amplify/auth", () => ({
@@ -29,6 +31,8 @@ vi.mock("../../auth/authApi", () => ({
     nativeResend: vi.fn(),
     nativeSignIn: nativeSignInMock,
     nativeSignUp: vi.fn(),
+    startPasswordSetup: startPasswordSetupMock,
+    completePasswordSetup: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -55,6 +59,8 @@ describe("LoginForm state machine", () => {
         discoverAuthMethodsMock.mockReset();
         nativeSignInMock.mockReset();
         signInWithRedirectMock.mockReset();
+        startPasswordSetupMock.mockReset();
+        startPasswordSetupMock.mockResolvedValue({ ok: true });
     });
 
     it("discovers methods and shows chooser", async () => {

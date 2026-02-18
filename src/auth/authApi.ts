@@ -220,3 +220,43 @@ export async function setPassword(newPassword: string): Promise<AuthResult> {
         return toAuthError(e);
     }
 }
+
+export async function startPasswordSetup(email: string): Promise<AuthResult> {
+    try {
+        const res = await fetch(`${getApiBaseUrl()}/auth/password-setup/start`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({ email }),
+        });
+        if (!res.ok) {
+            return { ok: false, message: "Unable to start verification flow" };
+        }
+        return { ok: true };
+    } catch (e) {
+        return toAuthError(e);
+    }
+}
+
+export async function completePasswordSetup(
+    email: string,
+    code: string,
+    newPassword: string
+): Promise<AuthResult> {
+    try {
+        const res = await fetch(`${getApiBaseUrl()}/auth/password-setup/complete`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({ email, code, newPassword }),
+        });
+        if (!res.ok) {
+            return { ok: false, message: "Unable to verify email or set password" };
+        }
+        return { ok: true };
+    } catch (e) {
+        return toAuthError(e);
+    }
+}
