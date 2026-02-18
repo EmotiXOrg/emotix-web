@@ -25,6 +25,8 @@ import {
 export type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
 
 const normEmail = (v: string) => v.trim().toLowerCase();
+const RESEND_COOLDOWN_SECONDS = 60;
+const MAX_RESEND_ATTEMPTS = 5;
 
 function getErrorMessage(err: unknown, fallback: string) {
     if (err && typeof err === "object" && "message" in err) {
@@ -57,6 +59,8 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [err, setErr] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
+    const [resendAttempts, setResendAttempts] = useState(0);
 
     useEffect(() => {
         if (emailFromQuery) setEmail(emailFromQuery);
@@ -67,6 +71,22 @@ export function LoginForm(props: { mode: AuthMode }) {
             setPassword("");
         }
     }, [props.mode]);
+
+    useEffect(() => {
+        if (props.mode !== "verify") {
+            setResendCooldownSeconds(0);
+            setResendAttempts(0);
+            return;
+        }
+
+        if (resendCooldownSeconds <= 0) {
+            return;
+        }
+        const timer = window.setInterval(() => {
+            setResendCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [props.mode, resendCooldownSeconds]);
 
     const title = useMemo(() => {
         switch (props.mode) {
@@ -259,15 +279,37 @@ export function LoginForm(props: { mode: AuthMode }) {
     }
 
     async function onResendCode() {
+        if (resendAttempts >= MAX_RESEND_ATTEMPTS) {
+            setError(
+                t("tooManyResendAttempts", {
+                    defaultValue: "Too many resend attempts. Please wait a few minutes and try again.",
+                })
+            );
+            return;
+        }
+        if (resendCooldownSeconds > 0) {
+            return;
+        }
         setErr(null);
         setInfo(null);
         setBusy(true);
         try {
             const result = await nativeResend(normEmail(email));
             if (!result.ok) {
+                if (result.code === "LimitExceededException") {
+                    setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
+                    setError(
+                        t("tooManyResendAttempts", {
+                            defaultValue: "Too many resend attempts. Please wait a few minutes and try again.",
+                        })
+                    );
+                    return;
+                }
                 setError(result.message);
                 return;
             }
+            setResendAttempts((prev) => prev + 1);
+            setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
             setInformation(t("codeResent", { defaultValue: "Code resent." }));
         } finally {
             setBusy(false);
@@ -379,8 +421,18 @@ export function LoginForm(props: { mode: AuthMode }) {
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
-                        <Button variant="link" onClick={onResendCode} disabled={busy || !email} type="button">
-                            {t("resendCode", { defaultValue: "Resend code" })}
+                        <Button
+                            variant="link"
+                            onClick={onResendCode}
+                            disabled={busy || !email || resendCooldownSeconds > 0 || resendAttempts >= MAX_RESEND_ATTEMPTS}
+                            type="button"
+                        >
+                            {resendCooldownSeconds > 0
+                                ? t("resendCodeCooldown", {
+                                    defaultValue: "Resend code in {{seconds}}s",
+                                    seconds: resendCooldownSeconds,
+                                })
+                                : t("resendCode", { defaultValue: "Resend code" })}
                         </Button>
                     </>
                 )}
