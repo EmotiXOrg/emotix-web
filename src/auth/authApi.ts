@@ -165,10 +165,27 @@ export async function getCurrentUserEmail(): Promise<string | null> {
         if (typeof email === "string" && email.trim()) {
             return email;
         }
-        return null;
+    }
+    catch {
+        // Fallbacks below.
+    }
+
+    try {
+        const session = await fetchAuthSession();
+        const idTokenEmail = session.tokens?.idToken?.payload?.email;
+        if (typeof idTokenEmail === "string" && idTokenEmail.trim()) {
+            return idTokenEmail;
+        }
+
+        const user = await getCurrentUser();
+        const loginId = user.signInDetails?.loginId;
+        if (typeof loginId === "string" && loginId.includes("@")) {
+            return loginId;
+        }
     } catch {
         return null;
     }
+    return null;
 }
 
 export async function discoverAuthMethods(email: string): Promise<AuthDiscoverResponse> {

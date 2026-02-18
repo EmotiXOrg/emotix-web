@@ -36,10 +36,11 @@ export function AccountSettingsPanel() {
     const loadMethods = useCallback(async () => {
         setBusy(true);
         setErr(null);
+        const email = await getCurrentUserEmail();
+        setProfileEmail(email);
         try {
-            const [res, email] = await Promise.all([getAuthMethods(), getCurrentUserEmail()]);
+            const res = await getAuthMethods();
             setMethods(res.methods);
-            setProfileEmail(email);
         } catch {
             setErr(t("settings.error.load", { defaultValue: "Failed to load linked sign-in methods." }));
         } finally {
