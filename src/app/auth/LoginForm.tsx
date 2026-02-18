@@ -6,13 +6,11 @@ import { AuthCard } from "./AuthCard";
 import { Button } from "../../ui/Button";
 import { TextField } from "../../ui/TextField";
 import { Notification } from "../../ui/Notification";
-import { MethodChooser } from "./components/MethodChooser";
 import { EmailStep } from "./components/EmailStep";
 import { PasswordStep } from "./components/PasswordStep";
 import { SocialButtons } from "./components/SocialButtons";
 
 import {
-    discoverAuthMethods,
     completePasswordSetup,
     nativeConfirm,
     nativeConfirmReset,
@@ -21,14 +19,9 @@ import {
     nativeSignIn,
     nativeSignUp,
     startPasswordSetup,
-    type LoginMethod,
 } from "../../auth/authApi";
 
 export type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
-type LoginState =
-    | "choose_method"
-    | "password_login"
-    | "social_only";
 
 const normEmail = (v: string) => v.trim().toLowerCase();
 
@@ -44,15 +37,6 @@ function getErrorMessage(err: unknown, fallback: string) {
 
 function getQuery(locSearch: string) {
     return new URLSearchParams(locSearch);
-}
-
-function socialMethodsFrom(methods: LoginMethod[]): Array<"google" | "facebook"> {
-    return methods.filter((m): m is "google" | "facebook" => m === "google" || m === "facebook");
-}
-
-function fallbackMethods(methods: LoginMethod[]): LoginMethod[] {
-    if (methods.length > 0) return methods;
-    return ["password", "google", "facebook"];
 }
 
 export function LoginForm(props: { mode: AuthMode }) {
@@ -72,8 +56,6 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [err, setErr] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [loginState, setLoginState] = useState<LoginState>("choose_method");
-    const [discoveredMethods, setDiscoveredMethods] = useState<LoginMethod[]>([]);
 
     useEffect(() => {
         if (emailFromQuery) setEmail(emailFromQuery);
@@ -81,8 +63,6 @@ export function LoginForm(props: { mode: AuthMode }) {
 
     useEffect(() => {
         if (props.mode === "login") {
-            setLoginState("choose_method");
-            setDiscoveredMethods([]);
             setPassword("");
         }
     }, [props.mode]);
@@ -105,7 +85,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const subtitle = useMemo(() => {
         switch (props.mode) {
             case "login":
-                return t("subtitle", { defaultValue: "Choose a sign-in method" });
+                return t("subtitle", { defaultValue: "Sign in with email/password or social login" });
             case "signup":
                 return t("signupSubtitle", { defaultValue: "Sign up with email and verify it" });
             case "verify":
@@ -153,30 +133,6 @@ export function LoginForm(props: { mode: AuthMode }) {
         }
     }
 
-    async function runDiscoverForGuidance() {
-        const eNorm = normEmail(email);
-        if (!eNorm) return;
-
-        try {
-            const discovered = await discoverAuthMethods(eNorm);
-            const methods = fallbackMethods(discovered.methods);
-            setDiscoveredMethods(methods);
-            if (discovered.nextAction === "social") {
-                setLoginState("social_only");
-                setInformation(
-                    t("socialOnlyHint", {
-                        defaultValue: "This account uses social sign-in. Continue with your linked provider.",
-                    })
-                );
-                return true;
-            }
-            return false;
-        } catch {
-            setDiscoveredMethods(["password", "google", "facebook"]);
-            return false;
-        }
-    }
-
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setErr(null);
@@ -190,23 +146,32 @@ export function LoginForm(props: { mode: AuthMode }) {
                 const result = await nativeSignIn(eNorm, password);
                 if (!result.ok) {
                     if (result.code === "UserNotConfirmedException") {
-                        go("verify", { email: eNorm, replace: true });
+                        setNewPassword(password);
+                        setConfirmNewPassword(password);
+                        go("verify", { email: eNorm, action: "setup_password", replace: true });
                         return;
                     }
-                    if (
-                        result.code === "NotAuthorizedException" &&
-                        (discoveredMethods.length === 0 || discoveredMethods.includes("password"))
-                    ) {
-                        const socialOnly = await runDiscoverForGuidance();
-                        if (socialOnly) {
-                            const startResult = await startPasswordSetup(eNorm);
-                            if (!startResult.ok) {
-                                setError(startResult.message);
-                                return;
-                            }
-                            go("verify", { email: eNorm, action: "setup_password", replace: true });
+                    if (result.code === "UserNotFoundException") {
+                        const signUpResult = await nativeSignUp(eNorm, password);
+                        if (!signUpResult.ok && signUpResult.code !== "UsernameExistsException") {
+                            setError(signUpResult.message);
                             return;
                         }
+                        setNewPassword(password);
+                        setConfirmNewPassword(password);
+                        go("verify", { email: eNorm, action: "setup_password", replace: true });
+                        return;
+                    }
+                    if (result.code === "NotAuthorizedException") {
+                        const startResult = await startPasswordSetup(eNorm);
+                        if (!startResult.ok) {
+                            setError(startResult.message);
+                            return;
+                        }
+                        setNewPassword(password);
+                        setConfirmNewPassword(password);
+                        go("verify", { email: eNorm, action: "setup_password", replace: true });
+                        return;
                     }
                     setError(result.message);
                     return;
@@ -242,15 +207,15 @@ export function LoginForm(props: { mode: AuthMode }) {
                     }
                     const completeResult = await completePasswordSetup(eNorm, code.trim(), newPassword);
                     if (!completeResult.ok) {
-                        setError(completeResult.message);
+                        setError(t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
                         return;
                     }
-                    go("login", { replace: true });
-                    setInformation(
-                        t("passwordSetupDone", {
-                            defaultValue: "Email verified and password set. Please log in.",
-                        })
-                    );
+                    const loginResult = await nativeSignIn(eNorm, newPassword);
+                    if (!loginResult.ok) {
+                        setError(loginResult.message);
+                        return;
+                    }
+                    nav("/app", { replace: true });
                     return;
                 }
 
@@ -302,154 +267,93 @@ export function LoginForm(props: { mode: AuthMode }) {
 
     const canSubmit = useMemo(() => {
         if (busy) return false;
-        if (props.mode === "login") return loginState === "password_login" && !!email.trim() && !!password;
+        if (props.mode === "login") return !!email.trim() && !!password;
         if (props.mode === "signup") return !!password;
         if (props.mode === "verify" && isPasswordSetupVerify) return !!code.trim() && !!newPassword && !!confirmNewPassword;
         if (props.mode === "verify") return !!code.trim();
         if (props.mode === "forgot") return true;
         if (props.mode === "reset") return !!code.trim() && !!newPassword;
         return false;
-    }, [busy, code, confirmNewPassword, email, isPasswordSetupVerify, loginState, newPassword, password, props.mode]);
-
-    const socialOnlyMethods = socialMethodsFrom(discoveredMethods);
-    const showLoginEmail = props.mode === "login" && loginState === "password_login";
-    const chooserMethods: LoginMethod[] =
-        discoveredMethods.length > 0 ? fallbackMethods(discoveredMethods) : ["password", "google", "facebook"];
+    }, [busy, code, confirmNewPassword, email, isPasswordSetupVerify, newPassword, password, props.mode]);
 
     return (
         <AuthCard title={title} subtitle={subtitle}>
             {props.mode === "login" && (
                 <div className="space-y-3 mb-4 motion-fade-slide">
-                    {showLoginEmail && <EmailStep email={email} onEmailChange={setEmail} />}
-
-                    {loginState === "choose_method" && (
-                        <MethodChooser
-                            busy={busy}
-                            methods={chooserMethods}
-                            onChoosePassword={() => {
-                                setErr(null);
-                                setInfo(null);
-                                setLoginState("password_login");
-                            }}
-                            onChooseSocial={social}
-                        />
-                    )}
-
-                    {loginState === "social_only" && (
-                        <SocialButtons busy={busy} methods={socialOnlyMethods} onClick={social} />
-                    )}
-
+                    <SocialButtons busy={busy} methods={["google", "facebook"]} onClick={social} />
                 </div>
             )}
 
             {err && <Notification tone="error" message={err} />}
             {info && <Notification tone="success" message={info} />}
 
-            {(props.mode !== "login" || loginState === "password_login") && (
-                <div key={props.mode} className="motion-fade-slide">
-                    <form onSubmit={onSubmit} className="space-y-3">
-                        {props.mode !== "login" && <EmailStep email={email} onEmailChange={setEmail} />}
+            <div key={props.mode} className="motion-fade-slide">
+                <form onSubmit={onSubmit} className="space-y-3">
+                    <EmailStep email={email} onEmailChange={setEmail} />
 
-                        {(props.mode === "login" || props.mode === "signup") && (
-                            <PasswordStep password={password} onPasswordChange={setPassword} mode={props.mode} />
-                        )}
+                    {(props.mode === "login" || props.mode === "signup") && (
+                        <PasswordStep password={password} onPasswordChange={setPassword} mode={props.mode} />
+                    )}
 
-                        {props.mode === "verify" && (
-                            <>
-                                <TextField
-                                    label={t("verificationCode", { defaultValue: "Verification code" })}
-                                    placeholder={t("verificationCode", { defaultValue: "Verification code" })}
-                                    value={code}
-                                    onChange={(e) => setCode(e.target.value)}
-                                    inputMode="numeric"
-                                />
-                                {isPasswordSetupVerify && (
-                                    <>
-                                        <PasswordStep
-                                            password={newPassword}
-                                            onPasswordChange={setNewPassword}
-                                            mode="reset"
-                                            label={t("newPassword", { defaultValue: "New password" })}
-                                        />
-                                        <PasswordStep
-                                            password={confirmNewPassword}
-                                            onPasswordChange={setConfirmNewPassword}
-                                            mode="reset"
-                                            label={t("confirmPassword", { defaultValue: "Confirm password" })}
-                                        />
-                                    </>
-                                )}
-                            </>
-                        )}
+                    {props.mode === "verify" && (
+                        <>
+                            <TextField
+                                label={t("verificationCode", { defaultValue: "Verification code" })}
+                                placeholder={t("verificationCode", { defaultValue: "Verification code" })}
+                                value={code}
+                                onChange={(e) => setCode(e.target.value)}
+                                inputMode="numeric"
+                            />
+                            {isPasswordSetupVerify && (
+                                <>
+                                    <PasswordStep
+                                        password={newPassword}
+                                        onPasswordChange={setNewPassword}
+                                        mode="reset"
+                                        label={t("newPassword", { defaultValue: "New password" })}
+                                    />
+                                    <PasswordStep
+                                        password={confirmNewPassword}
+                                        onPasswordChange={setConfirmNewPassword}
+                                        mode="reset"
+                                        label={t("confirmPassword", { defaultValue: "Confirm password" })}
+                                    />
+                                </>
+                            )}
+                        </>
+                    )}
 
-                        {props.mode === "reset" && (
-                            <>
-                                <TextField
-                                    label={t("resetCode", { defaultValue: "Reset code" })}
-                                    placeholder={t("resetCode", { defaultValue: "Reset code" })}
-                                    value={code}
-                                    onChange={(e) => setCode(e.target.value)}
-                                    inputMode="numeric"
-                                />
-                                <PasswordStep
-                                    password={newPassword}
-                                    onPasswordChange={setNewPassword}
-                                    mode="reset"
-                                    label={t("newPassword", { defaultValue: "New password" })}
-                                />
-                            </>
-                        )}
+                    {props.mode === "reset" && (
+                        <>
+                            <TextField
+                                label={t("resetCode", { defaultValue: "Reset code" })}
+                                placeholder={t("resetCode", { defaultValue: "Reset code" })}
+                                value={code}
+                                onChange={(e) => setCode(e.target.value)}
+                                inputMode="numeric"
+                            />
+                            <PasswordStep
+                                password={newPassword}
+                                onPasswordChange={setNewPassword}
+                                mode="reset"
+                                label={t("newPassword", { defaultValue: "New password" })}
+                            />
+                        </>
+                    )}
 
-                        <Button fullWidth disabled={!canSubmit} type="submit">
-                            {busy
-                                ? t("pleaseWait", { defaultValue: "Please wait..." })
-                                : t("continue", { defaultValue: "Continue" })}
-                        </Button>
-                        {props.mode === "login" && loginState === "password_login" && (
-                            <Button
-                                variant="link"
-                                type="button"
-                                disabled={busy || !email.trim()}
-                                onClick={async () => {
-                                    setErr(null);
-                                    setInfo(null);
-                                    const startResult = await startPasswordSetup(normEmail(email));
-                                    if (!startResult.ok) {
-                                        setError(startResult.message);
-                                        return;
-                                    }
-                                    go("verify", { email: normEmail(email), action: "setup_password" });
-                                }}
-                            >
-                                {t("setupPasswordFromEmail", {
-                                    defaultValue: "Verify email and set password",
-                                })}
-                            </Button>
-                        )}
-                    </form>
-                </div>
-            )}
+                    <Button fullWidth disabled={!canSubmit} type="submit">
+                        {busy
+                            ? t("pleaseWait", { defaultValue: "Please wait..." })
+                            : t("continue", { defaultValue: "Continue" })}
+                    </Button>
+                </form>
+            </div>
 
             <div className="mt-4 flex items-center justify-between text-sm text-neutral-300">
                 {props.mode === "login" && (
-                    <>
-                        <Button
-                            variant="link"
-                            onClick={() => {
-                                setErr(null);
-                                setInfo(null);
-                                setPassword("");
-                                setLoginState("choose_method");
-                            }}
-                            disabled={busy}
-                            type="button"
-                        >
-                            {t("back", { defaultValue: "Back" })}
-                        </Button>
-                        <Button variant="link" onClick={() => go("forgot", { email: normEmail(email) })} disabled={busy} type="button">
-                            {t("forgotPassword", { defaultValue: "Forgot password" })}
-                        </Button>
-                    </>
+                    <Button variant="link" onClick={() => go("forgot", { email: normEmail(email) })} disabled={busy} type="button">
+                        {t("forgotPassword", { defaultValue: "Forgot password" })}
+                    </Button>
                 )}
 
                 {props.mode === "signup" && (

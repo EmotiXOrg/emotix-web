@@ -7,14 +7,14 @@ import { LoginForm } from "./LoginForm";
 
 const {
     navigateMock,
-    discoverAuthMethodsMock,
     nativeSignInMock,
+    nativeSignUpMock,
     signInWithRedirectMock,
     startPasswordSetupMock,
 } = vi.hoisted(() => ({
     navigateMock: vi.fn(),
-    discoverAuthMethodsMock: vi.fn(),
     nativeSignInMock: vi.fn(),
+    nativeSignUpMock: vi.fn(),
     signInWithRedirectMock: vi.fn(),
     startPasswordSetupMock: vi.fn(),
 }));
@@ -24,13 +24,12 @@ vi.mock("aws-amplify/auth", () => ({
 }));
 
 vi.mock("../../auth/authApi", () => ({
-    discoverAuthMethods: discoverAuthMethodsMock,
     nativeConfirm: vi.fn(),
     nativeConfirmReset: vi.fn(),
     nativeRequestReset: vi.fn(),
     nativeResend: vi.fn(),
     nativeSignIn: nativeSignInMock,
-    nativeSignUp: vi.fn(),
+    nativeSignUp: nativeSignUpMock,
     startPasswordSetup: startPasswordSetupMock,
     completePasswordSetup: vi.fn(),
 }));
@@ -56,37 +55,34 @@ vi.mock("react-router-dom", async () => {
 describe("LoginForm state machine", () => {
     beforeEach(() => {
         navigateMock.mockReset();
-        discoverAuthMethodsMock.mockReset();
         nativeSignInMock.mockReset();
+        nativeSignUpMock.mockReset();
         signInWithRedirectMock.mockReset();
         startPasswordSetupMock.mockReset();
         startPasswordSetupMock.mockResolvedValue({ ok: true });
     });
 
-    it("discovers methods and shows chooser", async () => {
+    it("shows email/password and social options on first login screen", async () => {
         render(
             <MemoryRouter initialEntries={["/auth?mode=login"]}>
                 <LoginForm mode="login" />
             </MemoryRouter>
         );
 
+        expect(screen.getByLabelText("Email")).toBeInTheDocument();
+        expect(screen.getByLabelText("Password")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Continue with Email" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Forgot password" })).toBeInTheDocument();
     });
 
-    it("forces social-only path after wrong password when discovery says social", async () => {
+    it("routes unverified users to setup-password verify flow", async () => {
         const user = userEvent.setup();
-        discoverAuthMethodsMock.mockResolvedValue({
-            email: "dev@emotix.net",
-            methods: ["google"],
-            nextAction: "social",
-        });
-
         nativeSignInMock.mockResolvedValue({
             ok: false,
-            code: "NotAuthorizedException",
-            message: "Incorrect username or password.",
+            code: "UserNotConfirmedException",
+            message: "User is not confirmed.",
         });
 
         render(
@@ -95,23 +91,26 @@ describe("LoginForm state machine", () => {
             </MemoryRouter>
         );
 
-        await user.click(screen.getByRole("button", { name: "Continue with Email" }));
         await user.type(screen.getByLabelText("Email"), "dev@emotix.net");
         await user.type(screen.getByLabelText("Password"), "Password123!");
         await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
 
-        expect(await screen.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Continue with Email" })).not.toBeInTheDocument();
+        await waitFor(() => {
+            expect(navigateMock).toHaveBeenCalledWith(
+                "/auth?mode=verify&email=dev%40emotix.net&action=setup_password",
+                { replace: true }
+            );
+        });
     });
 
-    it("signs in with password after choosing email method", async () => {
+    it("creates brand-new account from login and routes to verify setup flow", async () => {
         const user = userEvent.setup();
-        discoverAuthMethodsMock.mockResolvedValue({
-            email: "dev@emotix.net",
-            methods: ["password", "google"],
-            nextAction: "choose_method",
+        nativeSignInMock.mockResolvedValue({
+            ok: false,
+            code: "UserNotFoundException",
+            message: "User does not exist.",
         });
-        nativeSignInMock.mockResolvedValue({ ok: true });
+        nativeSignUpMock.mockResolvedValue({ ok: true });
 
         render(
             <MemoryRouter initialEntries={["/auth?mode=login"]}>
@@ -119,14 +118,17 @@ describe("LoginForm state machine", () => {
             </MemoryRouter>
         );
 
-        await user.click(screen.getByRole("button", { name: "Continue with Email" }));
         await user.type(screen.getByLabelText("Email"), "DEV@emotix.net");
         await user.type(screen.getByLabelText("Password"), "Password123!");
         await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
 
         await waitFor(() => {
             expect(nativeSignInMock).toHaveBeenCalledWith("dev@emotix.net", "Password123!");
-            expect(navigateMock).toHaveBeenCalledWith("/app", { replace: true });
+            expect(nativeSignUpMock).toHaveBeenCalledWith("dev@emotix.net", "Password123!");
+            expect(navigateMock).toHaveBeenCalledWith(
+                "/auth?mode=verify&email=dev%40emotix.net&action=setup_password",
+                { replace: true }
+            );
         });
     });
 });
