@@ -18,7 +18,7 @@
         "refresh": "Обновить",
         "loadingMethods": "Загрузка способов входа...",
         "noMethods": "Способы входа пока не найдены.",
-        "linkedAt": "Привязано",
+        "linkedAt": "Последний вход",
         "currentMethod": "Текущий",
         "verified": "Подтверждено",
         "unverified": "Не подтверждено",

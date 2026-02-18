@@ -144,8 +144,8 @@ export function AccountSettingsPanel() {
                                     <div className="font-medium">{t(methodLabel(item.method), { defaultValue: item.method })}</div>
                                     <div className="text-xs text-neutral-400">
                                         {item.linkedAt
-                                            ? `${t("settings.linkedAt", { defaultValue: "Linked" })}: ${new Date(item.linkedAt).toLocaleString()}`
-                                            : t("settings.linkedAt", { defaultValue: "Linked" })}
+                                            ? `${t("settings.linkedAt", { defaultValue: "Last logged in" })}: ${new Date(item.linkedAt).toLocaleString()}`
+                                            : t("settings.linkedAt", { defaultValue: "Last logged in" })}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
