@@ -36,6 +36,7 @@ export type AuthMethodsResponse = {
         provider: string;
         linkedAt?: string;
         verified: boolean;
+        currentlyUsed?: boolean;
     }>;
 };
 

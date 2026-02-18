@@ -12,6 +12,7 @@ type MethodItem = {
     provider: string;
     linkedAt?: string;
     verified: boolean;
+    currentlyUsed?: boolean;
 };
 
 function methodLabel(method: LoginMethod) {
@@ -133,16 +134,23 @@ export function AccountSettingsPanel() {
                                             : t("settings.linkedAt", { defaultValue: "Linked" })}
                                     </div>
                                 </div>
-                                <div
-                                    className={`text-xs rounded-full px-2 py-1 border ${
-                                        item.verified
-                                            ? "border-emerald-500/60 text-emerald-300"
-                                            : "border-amber-500/60 text-amber-300"
-                                    }`}
-                                >
-                                    {item.verified
-                                        ? t("settings.verified", { defaultValue: "Verified" })
-                                        : t("settings.unverified", { defaultValue: "Unverified" })}
+                                <div className="flex items-center gap-2">
+                                    {item.currentlyUsed && (
+                                        <div className="text-xs rounded-full px-2 py-1 border border-sky-500/60 text-sky-300">
+                                            {t("settings.currentMethod", { defaultValue: "Current" })}
+                                        </div>
+                                    )}
+                                    <div
+                                        className={`text-xs rounded-full px-2 py-1 border ${
+                                            item.verified
+                                                ? "border-emerald-500/60 text-emerald-300"
+                                                : "border-amber-500/60 text-amber-300"
+                                        }`}
+                                    >
+                                        {item.verified
+                                            ? t("settings.verified", { defaultValue: "Verified" })
+                                            : t("settings.unverified", { defaultValue: "Unverified" })}
+                                    </div>
                                 </div>
                             </div>
                         ))}

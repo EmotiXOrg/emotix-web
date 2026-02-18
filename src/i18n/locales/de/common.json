@@ -19,6 +19,7 @@
         "loadingMethods": "Methoden werden geladen...",
         "noMethods": "Noch keine Methoden erkannt.",
         "linkedAt": "Verknupft",
+        "currentMethod": "Aktuell",
         "verified": "Verifiziert",
         "unverified": "Nicht verifiziert",
         "socialOnlyHelp": "Dieses Konto nutzt derzeit nur Social Login. Setzen Sie ein Passwort, um E-Mail-Login zu aktivieren.",

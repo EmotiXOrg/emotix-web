@@ -19,6 +19,7 @@
         "loadingMethods": "Loading methods...",
         "noMethods": "No methods detected yet.",
         "linkedAt": "Linked",
+        "currentMethod": "Current",
         "verified": "Verified",
         "unverified": "Unverified",
         "socialOnlyHelp": "This account currently uses social sign-in only. Set a password to enable email login.",
