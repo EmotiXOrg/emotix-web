@@ -221,6 +221,7 @@ export async function discoverAuthMethods(email: string): Promise<AuthDiscoverRe
 export async function getAuthMethods(options?: { forceRefresh?: boolean }): Promise<AuthMethodsResponse> {
     const token = await getAccessTokenOrThrow();
     const now = Date.now();
+    // Cache is scoped to the current access token to avoid cross-session leakage.
     if (
         !options?.forceRefresh &&
         authMethodsCache &&
