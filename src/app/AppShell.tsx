@@ -24,7 +24,7 @@ export function AppShell() {
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100">
             <Routes>
-                <Route path="/" element={<Screen title={t("nav.tonight", { defaultValue: "Tonight" })} />} />
+                <Route path="/" element={<AccountSettingsPanel />} />
                 <Route path="explore" element={<Screen title={t("nav.explore", { defaultValue: "Explore" })} />} />
                 <Route path="profile" element={<AccountSettingsPanel />} />
                 <Route path="history" element={<Screen title={t("nav.history", { defaultValue: "History" })} />} />
