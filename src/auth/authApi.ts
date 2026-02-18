@@ -51,6 +51,11 @@ type AmplifyErrorLike = {
     message?: unknown;
 };
 
+type ApiErrorBody = {
+    message?: unknown;
+    code?: unknown;
+};
+
 function toAuthError(e: unknown): AuthResult {
     if (e && typeof e === "object" && "name" in e) {
         const err = e as AmplifyErrorLike;
@@ -63,6 +68,23 @@ function toAuthError(e: unknown): AuthResult {
 
 function getApiBaseUrl(): string {
     return (import.meta.env.VITE_API_BASE_URL as string).replace(/\/+$/, "");
+}
+
+async function toApiErrorResult(res: Response, fallbackMessage: string): Promise<AuthResult> {
+    let message = fallbackMessage;
+    let code: string | undefined;
+    try {
+        const body = (await res.json()) as ApiErrorBody;
+        if (typeof body.message === "string" && body.message.trim()) {
+            message = body.message;
+        }
+        if (typeof body.code === "string" && body.code.trim()) {
+            code = body.code;
+        }
+    } catch {
+        // keep fallback message when body is not JSON
+    }
+    return { ok: false, code, message };
 }
 
 const AUTH_METHODS_CACHE_TTL_MS = 60_000;
@@ -261,7 +283,7 @@ export async function setPassword(newPassword: string): Promise<AuthResult> {
             body: JSON.stringify({ newPassword }),
         });
         if (!res.ok) {
-            return { ok: false, message: "Failed to set password" };
+            return toApiErrorResult(res, "Failed to set password");
         }
         authMethodsCache = null;
         return { ok: true };
@@ -280,7 +302,7 @@ export async function startPasswordSetup(email: string): Promise<AuthResult> {
             body: JSON.stringify({ email }),
         });
         if (!res.ok) {
-            return { ok: false, message: "Unable to start verification flow" };
+            return toApiErrorResult(res, "Unable to start verification flow");
         }
         return { ok: true };
     } catch (e) {
@@ -302,7 +324,7 @@ export async function completePasswordSetup(
             body: JSON.stringify({ email, code, newPassword }),
         });
         if (!res.ok) {
-            return { ok: false, message: "Unable to verify email or set password" };
+            return toApiErrorResult(res, "Unable to verify email or set password");
         }
         return { ok: true };
     } catch (e) {

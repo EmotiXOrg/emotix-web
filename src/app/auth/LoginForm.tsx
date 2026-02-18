@@ -12,6 +12,7 @@ import { SocialButtons } from "./components/SocialButtons";
 
 import {
     completePasswordSetup,
+    discoverAuthMethods,
     nativeConfirm,
     nativeConfirmReset,
     nativeRequestReset,
@@ -143,6 +144,25 @@ export function LoginForm(props: { mode: AuthMode }) {
 
         try {
             if (props.mode === "login") {
+                const discoverResult = await discoverAuthMethods(eNorm);
+                const hasPasswordMethod = discoverResult.methods.includes("password");
+                const shouldStartPasswordSetup =
+                    discoverResult.nextAction === "needs_verification" ||
+                    discoverResult.nextAction === "signup_or_signin" ||
+                    !hasPasswordMethod;
+
+                if (shouldStartPasswordSetup) {
+                    const setupStartResult = await startPasswordSetup(eNorm);
+                    if (!setupStartResult.ok) {
+                        setError(setupStartResult.message);
+                        return;
+                    }
+                    setNewPassword(password);
+                    setConfirmNewPassword(password);
+                    go("verify", { email: eNorm, action: "setup_password", replace: true });
+                    return;
+                }
+
                 const result = await nativeSignIn(eNorm, password);
                 if (!result.ok) {
                     if (result.code === "UserNotConfirmedException") {
@@ -152,20 +172,9 @@ export function LoginForm(props: { mode: AuthMode }) {
                         return;
                     }
                     if (result.code === "UserNotFoundException") {
-                        const signUpResult = await nativeSignUp(eNorm, password);
-                        if (!signUpResult.ok && signUpResult.code !== "UsernameExistsException") {
-                            setError(signUpResult.message);
-                            return;
-                        }
-                        setNewPassword(password);
-                        setConfirmNewPassword(password);
-                        go("verify", { email: eNorm, action: "setup_password", replace: true });
-                        return;
-                    }
-                    if (result.code === "NotAuthorizedException") {
-                        const startResult = await startPasswordSetup(eNorm);
-                        if (!startResult.ok) {
-                            setError(startResult.message);
+                        const setupStartResult = await startPasswordSetup(eNorm);
+                        if (!setupStartResult.ok) {
+                            setError(setupStartResult.message);
                             return;
                         }
                         setNewPassword(password);
@@ -207,7 +216,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                     }
                     const completeResult = await completePasswordSetup(eNorm, code.trim(), newPassword);
                     if (!completeResult.ok) {
-                        setError(t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
+                        setError(completeResult.message || t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
                         return;
                     }
                     const loginResult = await nativeSignIn(eNorm, newPassword);

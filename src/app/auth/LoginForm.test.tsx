@@ -7,12 +7,14 @@ import { LoginForm } from "./LoginForm";
 
 const {
     navigateMock,
+    discoverAuthMethodsMock,
     nativeSignInMock,
     nativeSignUpMock,
     signInWithRedirectMock,
     startPasswordSetupMock,
 } = vi.hoisted(() => ({
     navigateMock: vi.fn(),
+    discoverAuthMethodsMock: vi.fn(),
     nativeSignInMock: vi.fn(),
     nativeSignUpMock: vi.fn(),
     signInWithRedirectMock: vi.fn(),
@@ -28,6 +30,7 @@ vi.mock("../../auth/authApi", () => ({
     nativeConfirmReset: vi.fn(),
     nativeRequestReset: vi.fn(),
     nativeResend: vi.fn(),
+    discoverAuthMethods: discoverAuthMethodsMock,
     nativeSignIn: nativeSignInMock,
     nativeSignUp: nativeSignUpMock,
     startPasswordSetup: startPasswordSetupMock,
@@ -55,11 +58,17 @@ vi.mock("react-router-dom", async () => {
 describe("LoginForm state machine", () => {
     beforeEach(() => {
         navigateMock.mockReset();
+        discoverAuthMethodsMock.mockReset();
         nativeSignInMock.mockReset();
         nativeSignUpMock.mockReset();
         signInWithRedirectMock.mockReset();
         startPasswordSetupMock.mockReset();
         startPasswordSetupMock.mockResolvedValue({ ok: true });
+        discoverAuthMethodsMock.mockResolvedValue({
+            email: "dev@emotix.net",
+            methods: ["password"],
+            nextAction: "password",
+        });
     });
 
     it("shows email/password and social options on first login screen", async () => {
@@ -105,12 +114,11 @@ describe("LoginForm state machine", () => {
 
     it("creates brand-new account from login and routes to verify setup flow", async () => {
         const user = userEvent.setup();
-        nativeSignInMock.mockResolvedValue({
-            ok: false,
-            code: "UserNotFoundException",
-            message: "User does not exist.",
+        discoverAuthMethodsMock.mockResolvedValue({
+            email: "dev@emotix.net",
+            methods: ["password", "google", "facebook"],
+            nextAction: "signup_or_signin",
         });
-        nativeSignUpMock.mockResolvedValue({ ok: true });
 
         render(
             <MemoryRouter initialEntries={["/auth?mode=login"]}>
@@ -123,12 +131,43 @@ describe("LoginForm state machine", () => {
         await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
 
         await waitFor(() => {
-            expect(nativeSignInMock).toHaveBeenCalledWith("dev@emotix.net", "Password123!");
-            expect(nativeSignUpMock).toHaveBeenCalledWith("dev@emotix.net", "Password123!");
+            expect(discoverAuthMethodsMock).toHaveBeenCalledWith("dev@emotix.net");
+            expect(startPasswordSetupMock).toHaveBeenCalledWith("dev@emotix.net");
+            expect(nativeSignInMock).not.toHaveBeenCalled();
             expect(navigateMock).toHaveBeenCalledWith(
                 "/auth?mode=verify&email=dev%40emotix.net&action=setup_password",
                 { replace: true }
             );
+        });
+    });
+
+    it("does not switch to verify flow for wrong password on existing password account", async () => {
+        const user = userEvent.setup();
+        discoverAuthMethodsMock.mockResolvedValue({
+            email: "dev@emotix.net",
+            methods: ["password", "google"],
+            nextAction: "choose_method",
+        });
+        nativeSignInMock.mockResolvedValue({
+            ok: false,
+            code: "NotAuthorizedException",
+            message: "Incorrect username or password.",
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/auth?mode=login"]}>
+                <LoginForm mode="login" />
+            </MemoryRouter>
+        );
+
+        await user.type(screen.getByLabelText("Email"), "dev@emotix.net");
+        await user.type(screen.getByLabelText("Password"), "WrongPassword");
+        await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
+
+        await waitFor(() => {
+            expect(nativeSignInMock).toHaveBeenCalledWith("dev@emotix.net", "WrongPassword");
+            expect(startPasswordSetupMock).not.toHaveBeenCalled();
+            expect(screen.getByText("Incorrect username or password.")).toBeInTheDocument();
         });
     });
 });
