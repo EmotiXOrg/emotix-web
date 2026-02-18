@@ -166,10 +166,7 @@ export function LoginForm(props: { mode: AuthMode }) {
             if (props.mode === "login") {
                 const discoverResult = await discoverAuthMethods(eNorm);
                 const hasPasswordMethod = discoverResult.methods.includes("password");
-                const shouldStartPasswordSetup =
-                    discoverResult.nextAction === "needs_verification" ||
-                    discoverResult.nextAction === "signup_or_signin" ||
-                    !hasPasswordMethod;
+                const shouldStartPasswordSetup = !hasPasswordMethod || discoverResult.nextAction === "signup_or_signin";
 
                 if (shouldStartPasswordSetup) {
                     const setupStartResult = await startPasswordSetup(eNorm);
@@ -183,15 +180,13 @@ export function LoginForm(props: { mode: AuthMode }) {
                     return;
                 }
 
-                const result = await nativeSignIn(eNorm, password);
-                if (!result.ok) {
-                    if (result.code === "UserNotConfirmedException") {
-                        setNewPassword(password);
-                        setConfirmNewPassword(password);
-                        go("verify", { email: eNorm, action: "setup_password", replace: true });
+                if (hasPasswordMethod) {
+                    const result = await nativeSignIn(eNorm, password);
+                    if (result.ok) {
+                        nav("/app", { replace: true });
                         return;
                     }
-                    if (result.code === "UserNotFoundException") {
+                    if (result.code === "UserNotConfirmedException" || discoverResult.nextAction === "needs_verification") {
                         const setupStartResult = await startPasswordSetup(eNorm);
                         if (!setupStartResult.ok) {
                             setError(setupStartResult.message);
@@ -205,8 +200,6 @@ export function LoginForm(props: { mode: AuthMode }) {
                     setError(result.message);
                     return;
                 }
-                nav("/app", { replace: true });
-                return;
             }
 
             if (props.mode === "signup") {
