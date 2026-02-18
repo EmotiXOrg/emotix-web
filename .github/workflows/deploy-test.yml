@@ -3,6 +3,7 @@ name: Deploy Web App (test)
 on:
   push:
     branches: ["main"]
+  workflow_dispatch:
 
 permissions:
   id-token: write
