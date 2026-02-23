@@ -312,19 +312,39 @@ export async function startPasswordSetup(email: string): Promise<AuthResult> {
 
 export async function completePasswordSetup(
     email: string,
-    code: string,
     newPassword: string
 ): Promise<AuthResult> {
     try {
-        const res = await fetch(`${getApiBaseUrl()}/auth/password-setup/complete`, {
+        const res = await fetch(`${getApiBaseUrl()}/auth/password-setup/set-password`, {
             method: "POST",
             headers: {
                 "content-type": "application/json",
             },
-            body: JSON.stringify({ email, code, newPassword }),
+            body: JSON.stringify({ email, newPassword }),
         });
         if (!res.ok) {
-            return toApiErrorResult(res, "Unable to verify email or set password");
+            return toApiErrorResult(res, "Unable to set password");
+        }
+        return { ok: true };
+    } catch (e) {
+        return toAuthError(e);
+    }
+}
+
+export async function verifyPasswordSetupCode(
+    email: string,
+    code: string
+): Promise<AuthResult> {
+    try {
+        const res = await fetch(`${getApiBaseUrl()}/auth/password-setup/verify-code`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({ email, code }),
+        });
+        if (!res.ok) {
+            return toApiErrorResult(res, "Verification failed");
         }
         return { ok: true };
     } catch (e) {

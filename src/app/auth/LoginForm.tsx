@@ -20,6 +20,7 @@ import {
     nativeSignIn,
     nativeSignUp,
     startPasswordSetup,
+    verifyPasswordSetupCode,
 } from "../../auth/authApi";
 
 export type AuthMode = "login" | "signup" | "verify" | "forgot" | "reset";
@@ -61,6 +62,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [busy, setBusy] = useState(false);
     const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
     const [resendAttempts, setResendAttempts] = useState(0);
+    const [passwordSetupStep, setPasswordSetupStep] = useState<"verify" | "set_password">("verify");
 
     useEffect(() => {
         if (emailFromQuery) setEmail(emailFromQuery);
@@ -87,6 +89,15 @@ export function LoginForm(props: { mode: AuthMode }) {
         }, 1000);
         return () => window.clearInterval(timer);
     }, [props.mode, resendCooldownSeconds]);
+
+    useEffect(() => {
+        if (props.mode === "verify" && actionFromQuery === "setup_password") {
+            setPasswordSetupStep("verify");
+            setCode("");
+            return;
+        }
+        setPasswordSetupStep("verify");
+    }, [actionFromQuery, props.mode]);
 
     const title = useMemo(() => {
         switch (props.mode) {
@@ -223,13 +234,24 @@ export function LoginForm(props: { mode: AuthMode }) {
 
             if (props.mode === "verify") {
                 if (isPasswordSetupVerify) {
+                    if (passwordSetupStep === "verify") {
+                        const verifyResult = await verifyPasswordSetupCode(eNorm, code.trim());
+                        if (!verifyResult.ok) {
+                            setError(verifyResult.message || t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
+                            return;
+                        }
+                        setPasswordSetupStep("set_password");
+                        return;
+                    }
+
                     if (newPassword !== confirmNewPassword) {
                         setError(t("passwordMismatch", { defaultValue: "Passwords do not match." }));
                         return;
                     }
-                    const completeResult = await completePasswordSetup(eNorm, code.trim(), newPassword);
+                    const completeResult = await completePasswordSetup(eNorm, newPassword);
                     if (!completeResult.ok) {
                         setError(completeResult.message || t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
+                        setPasswordSetupStep("verify");
                         return;
                     }
                     const loginResult = await nativeSignIn(eNorm, newPassword);
@@ -252,6 +274,16 @@ export function LoginForm(props: { mode: AuthMode }) {
             }
 
             if (props.mode === "forgot") {
+                const discoverResult = await discoverAuthMethods(eNorm);
+                if (discoverResult.nextAction === "needs_verification" || !discoverResult.methods.includes("password")) {
+                    const setupStartResult = await startPasswordSetup(eNorm);
+                    if (!setupStartResult.ok) {
+                        setError(setupStartResult.message);
+                        return;
+                    }
+                    go("verify", { email: eNorm, action: "setup_password", replace: true });
+                    return;
+                }
                 await nativeRequestReset(eNorm);
                 go("reset", { email: eNorm, replace: true });
                 return;
@@ -313,12 +345,13 @@ export function LoginForm(props: { mode: AuthMode }) {
         if (busy) return false;
         if (props.mode === "login") return !!email.trim() && !!password;
         if (props.mode === "signup") return !!password;
+        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "verify") return !!code.trim();
         if (props.mode === "verify" && isPasswordSetupVerify) return !!code.trim() && !!newPassword && !!confirmNewPassword;
         if (props.mode === "verify") return !!code.trim();
         if (props.mode === "forgot") return true;
         if (props.mode === "reset") return !!code.trim() && !!newPassword;
         return false;
-    }, [busy, code, confirmNewPassword, email, isPasswordSetupVerify, newPassword, password, props.mode]);
+    }, [busy, code, confirmNewPassword, email, isPasswordSetupVerify, newPassword, password, passwordSetupStep, props.mode]);
 
     return (
         <AuthCard title={title} subtitle={subtitle}>
@@ -347,8 +380,9 @@ export function LoginForm(props: { mode: AuthMode }) {
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
                                 inputMode="numeric"
+                                disabled={isPasswordSetupVerify && passwordSetupStep === "set_password"}
                             />
-                            {isPasswordSetupVerify && (
+                            {isPasswordSetupVerify && passwordSetupStep === "set_password" && (
                                 <>
                                     <PasswordStep
                                         password={newPassword}

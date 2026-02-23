@@ -10,15 +10,19 @@ const {
     discoverAuthMethodsMock,
     nativeSignInMock,
     nativeSignUpMock,
+    nativeRequestResetMock,
     signInWithRedirectMock,
     startPasswordSetupMock,
+    verifyPasswordSetupCodeMock,
 } = vi.hoisted(() => ({
     navigateMock: vi.fn(),
     discoverAuthMethodsMock: vi.fn(),
     nativeSignInMock: vi.fn(),
     nativeSignUpMock: vi.fn(),
+    nativeRequestResetMock: vi.fn(),
     signInWithRedirectMock: vi.fn(),
     startPasswordSetupMock: vi.fn(),
+    verifyPasswordSetupCodeMock: vi.fn(),
 }));
 
 vi.mock("aws-amplify/auth", () => ({
@@ -28,12 +32,13 @@ vi.mock("aws-amplify/auth", () => ({
 vi.mock("../../auth/authApi", () => ({
     nativeConfirm: vi.fn(),
     nativeConfirmReset: vi.fn(),
-    nativeRequestReset: vi.fn(),
+    nativeRequestReset: nativeRequestResetMock,
     nativeResend: vi.fn(),
     discoverAuthMethods: discoverAuthMethodsMock,
     nativeSignIn: nativeSignInMock,
     nativeSignUp: nativeSignUpMock,
     startPasswordSetup: startPasswordSetupMock,
+    verifyPasswordSetupCode: verifyPasswordSetupCodeMock,
     completePasswordSetup: vi.fn(),
 }));
 
@@ -61,9 +66,12 @@ describe("LoginForm state machine", () => {
         discoverAuthMethodsMock.mockReset();
         nativeSignInMock.mockReset();
         nativeSignUpMock.mockReset();
+        nativeRequestResetMock.mockReset();
         signInWithRedirectMock.mockReset();
         startPasswordSetupMock.mockReset();
+        verifyPasswordSetupCodeMock.mockReset();
         startPasswordSetupMock.mockResolvedValue({ ok: true });
+        verifyPasswordSetupCodeMock.mockResolvedValue({ ok: true });
         discoverAuthMethodsMock.mockResolvedValue({
             email: "dev@emotix.net",
             methods: ["password"],
@@ -168,6 +176,32 @@ describe("LoginForm state machine", () => {
             expect(nativeSignInMock).toHaveBeenCalledWith("dev@emotix.net", "WrongPassword");
             expect(startPasswordSetupMock).not.toHaveBeenCalled();
             expect(screen.getByText("Incorrect username or password.")).toBeInTheDocument();
+        });
+    });
+
+    it("routes forgot-password users to verification flow when password login is not ready", async () => {
+        const user = userEvent.setup();
+        discoverAuthMethodsMock.mockResolvedValue({
+            email: "dev@emotix.net",
+            methods: ["google"],
+            nextAction: "needs_verification",
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/auth?mode=forgot&email=dev%40emotix.net"]}>
+                <LoginForm mode="forgot" />
+            </MemoryRouter>
+        );
+
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await waitFor(() => {
+            expect(startPasswordSetupMock).toHaveBeenCalledWith("dev@emotix.net");
+            expect(nativeRequestResetMock).not.toHaveBeenCalled();
+            expect(navigateMock).toHaveBeenCalledWith(
+                "/auth?mode=verify&email=dev%40emotix.net&action=setup_password",
+                { replace: true }
+            );
         });
     });
 });

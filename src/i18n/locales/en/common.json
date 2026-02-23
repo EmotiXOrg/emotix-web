@@ -23,15 +23,20 @@
         "verified": "Verified",
         "unverified": "Unverified",
         "socialOnlyHelp": "This account currently uses social sign-in only. Set a password to enable email login.",
+        "sendVerificationCode": "Send verification code",
+        "verifyCode": "Verify code",
         "newPassword": "New password",
         "confirmPassword": "Confirm password",
         "setPassword": "Set password",
         "info": {
-            "passwordEnabled": "Password enabled for this account."
+            "passwordEnabled": "Password enabled for this account.",
+            "verificationCodeSent": "Verification code sent.",
+            "emailVerified": "Email verified. Now set your password."
         },
         "error": {
             "load": "Failed to load linked sign-in methods.",
-            "passwordMismatch": "Passwords do not match."
+            "passwordMismatch": "Passwords do not match.",
+            "missingEmail": "Account email is unavailable."
         },
         "method": {
             "password": "Email + Password",
