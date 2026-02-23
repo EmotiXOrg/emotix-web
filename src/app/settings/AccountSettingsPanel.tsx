@@ -7,6 +7,7 @@ import { Skeleton, SkeletonText } from "../../ui/Skeleton";
 import { getAuthMethods, getCurrentUserEmail, setPassword, type LoginMethod } from "../../auth/authApi";
 import { useTranslation } from "react-i18next";
 import { setLanguage, type SupportedLanguage } from "../../i18n";
+import { buildInfo } from "../buildInfo";
 
 type MethodItem = {
     method: LoginMethod;
@@ -200,6 +201,17 @@ export function AccountSettingsPanel() {
 
                 {err && <Notification tone="error" message={err} />}
                 {info && <Notification tone="success" message={info} />}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+                <div className="text-sm font-medium">{t("settings.buildInfo", { defaultValue: "Build info" })}</div>
+                <div className="mt-2 text-xs text-neutral-400 space-y-1">
+                    <div>stage: {buildInfo.stage}</div>
+                    <div>web version: {buildInfo.appVersion}</div>
+                    <div>build number: {buildInfo.buildNumber}</div>
+                    <div>git sha: {buildInfo.gitSha}</div>
+                    <div>deployed at: {buildInfo.deployedAt}</div>
+                </div>
             </div>
         </div>
     );

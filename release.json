@@ -1,0 +1,7 @@
+{
+  "component": "web",
+  "version": "0.1.0",
+  "apiContract": {
+    "minSupported": "1.0.0"
+  }
+}

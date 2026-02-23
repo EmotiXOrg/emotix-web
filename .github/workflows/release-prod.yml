@@ -1,24 +1,83 @@
-name: Deploy Web App (test)
+name: Web Release - Prod Deploy
 
 on:
   push:
-    branches: ["main"]
-  workflow_dispatch:
+    tags: ["web-v*.*.*"]
 
 permissions:
   id-token: write
   contents: read
 
 concurrency:
-  group: deploy-web-test
-  cancel-in-progress: true
+  group: web-prod-deploy
+  cancel-in-progress: false
 
 env:
-  RELEASE_MANIFEST_PARAM: ${{ vars.RELEASE_MANIFEST_PARAM_TEST || '/emotix/test/release-manifest' }}
+  RELEASE_MANIFEST_PARAM: ${{ vars.RELEASE_MANIFEST_PARAM_PROD || '/emotix/prod/release-manifest' }}
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      web_version: ${{ steps.meta.outputs.web_version }}
+      web_min_api_contract: ${{ steps.meta.outputs.web_min_api_contract }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate release metadata
+        run: node scripts/validate-release-metadata.mjs release.json
+
+      - name: Export release metadata
+        id: meta
+        run: |
+          echo "web_version=$(node -p 'require(\"./release.json\").version')" >> "$GITHUB_OUTPUT"
+          echo "web_min_api_contract=$(node -p 'require(\"./release.json\").apiContract.minSupported')" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches release version
+        run: |
+          set -euo pipefail
+          expected_tag="web-v${{ steps.meta.outputs.web_version }}"
+          if [ "${GITHUB_REF_NAME}" != "$expected_tag" ]; then
+            echo "Tag mismatch. Expected $expected_tag, got ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+
+      - name: Verify tag commit is on release branch
+        run: |
+          set -euo pipefail
+          git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
+          if ! git branch -r --contains "$GITHUB_SHA" | grep -E "origin/release/" >/dev/null; then
+            echo "Tagged commit is not reachable from any origin/release/* branch."
+            exit 1
+          fi
+
+      - name: Quality gate
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test
+          npm run test:coverage
+          VITE_RELEASE_VERSION="${{ steps.meta.outputs.web_version }}" \
+          VITE_BUILD_SHA="${GITHUB_SHA}" \
+          VITE_BUILD_NUMBER="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
+          VITE_DEPLOYED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+          npm run build:prod
+
   deploy:
     runs-on: ubuntu-latest
+    needs: gate
+    environment: production
 
     steps:
       - uses: actions/checkout@v4
@@ -28,41 +87,21 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install
+      - name: Install dependencies
         run: npm ci
 
-      - name: Validate release metadata
-        run: node scripts/validate-release-metadata.mjs release.json
-
-      - name: Export release metadata
+      - name: Build (mode=prod)
         run: |
-          echo "WEB_VERSION=$(node -p 'require(\"./release.json\").version')" >> "$GITHUB_ENV"
-          echo "WEB_MIN_API_CONTRACT=$(node -p 'require(\"./release.json\").apiContract.minSupported')" >> "$GITHUB_ENV"
-
-      - name: Run lint
-        run: npm run lint
-
-      - name: Run typecheck
-        run: npm run typecheck
-
-      - name: Run unit/component tests
-        run: npm run test
-
-      - name: Run coverage gate
-        run: npm run test:coverage
-
-      - name: Build (mode=test)
-        run: |
-          VITE_RELEASE_VERSION="$WEB_VERSION" \
+          VITE_RELEASE_VERSION="${{ needs.gate.outputs.web_version }}" \
           VITE_BUILD_SHA="${GITHUB_SHA}" \
           VITE_BUILD_NUMBER="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
           VITE_DEPLOYED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-          npm run build -- --mode test
+          npm run build:prod
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_TEST_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_PROD_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Check API contract compatibility against deployed infra
@@ -74,33 +113,30 @@ jobs:
             echo "No deployed infra api contract found in $RELEASE_MANIFEST_PARAM; skipping compatibility gate."
             exit 0
           fi
-          lower="$(printf '%s\n%s\n' "$infra_contract" "$WEB_MIN_API_CONTRACT" | sort -V | head -n1)"
-          if [ "$lower" != "$WEB_MIN_API_CONTRACT" ]; then
-            echo "Incompatible deployment: infra api contract $infra_contract is lower than web minimum $WEB_MIN_API_CONTRACT."
+          lower="$(printf '%s\n%s\n' "$infra_contract" "${{ needs.gate.outputs.web_min_api_contract }}" | sort -V | head -n1)"
+          if [ "$lower" != "${{ needs.gate.outputs.web_min_api_contract }}" ]; then
+            echo "Incompatible deployment: infra api contract $infra_contract is lower than web minimum ${{ needs.gate.outputs.web_min_api_contract }}."
             exit 1
           fi
-          echo "API contract check passed: infra=$infra_contract, web-min=$WEB_MIN_API_CONTRACT."
+          echo "API contract check passed: infra=$infra_contract, web-min=${{ needs.gate.outputs.web_min_api_contract }}."
 
-      # 1) Upload hashed Vite bundles (immutable)
       - name: Upload hashed app bundles (immutable)
         run: |
-          aws s3 sync dist/assets "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/assets" \
+          aws s3 sync dist/assets "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}/assets" \
             --delete \
             --cache-control "public,max-age=31536000,immutable"
 
-      # 2) Upload icons (cache 1 day by default)
       - name: Upload icons (1 day cache)
         run: |
           if [ -d "dist/icons" ]; then
-            aws s3 sync dist/icons "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/icons" \
+            aws s3 sync dist/icons "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}/icons" \
               --delete \
               --cache-control "public,max-age=86400"
           fi
 
-      # 3) Upload other static files excluding control files
       - name: Upload static files (excluding control files)
         run: |
-          aws s3 sync dist "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}" \
+          aws s3 sync dist "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}" \
             --delete \
             --exclude "index.html" \
             --exclude "manifest.webmanifest" \
@@ -110,35 +146,27 @@ jobs:
             --exclude "icons/*" \
             --cache-control "public,max-age=3600"
 
-      # 4) Upload PWA control files with no-cache
-      - name: Upload index.html (no-cache)
+      - name: Upload PWA control files (no-cache)
         run: |
-          aws s3 cp dist/index.html "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/index.html" \
+          aws s3 cp dist/index.html "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}/index.html" \
             --cache-control "no-cache,no-store,must-revalidate"
-
-      - name: Upload manifest (no-cache)
-        run: |
           if [ -f "dist/manifest.webmanifest" ]; then
-            aws s3 cp dist/manifest.webmanifest "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/manifest.webmanifest" \
+            aws s3 cp dist/manifest.webmanifest "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}/manifest.webmanifest" \
               --cache-control "no-cache,no-store,must-revalidate"
           fi
-
-      - name: Upload service worker (no-cache)
-        run: |
           if [ -f "dist/sw.js" ]; then
-            aws s3 cp dist/sw.js "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/sw.js" \
+            aws s3 cp dist/sw.js "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}/sw.js" \
               --cache-control "no-cache,no-store,must-revalidate"
           fi
           if [ -f "dist/registerSW.js" ]; then
-            aws s3 cp dist/registerSW.js "s3://${{ secrets.AWS_TEST_S3_APP_BUCKET }}/registerSW.js" \
+            aws s3 cp dist/registerSW.js "s3://${{ secrets.AWS_PROD_S3_APP_BUCKET }}/registerSW.js" \
               --cache-control "no-cache,no-store,must-revalidate"
           fi
 
-      # 5) Invalidate only control files (NOT assets/*)
       - name: CloudFront invalidation (PWA control files)
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ secrets.AWS_TEST_APP_CLOUD_FRONT_DISTRIBUTION_ID }}" \
+            --distribution-id "${{ secrets.AWS_PROD_APP_CLOUD_FRONT_DISTRIBUTION_ID }}" \
             --paths \
               "/index.html" \
               "/manifest.webmanifest" \
@@ -154,10 +182,10 @@ jobs:
           existing="$(aws ssm get-parameter --name "$RELEASE_MANIFEST_PARAM" --query 'Parameter.Value' --output text 2>/dev/null || echo '{}')"
           merged="$(jq -n \
             --argjson existing "$existing" \
-            --arg web_version "$WEB_VERSION" \
+            --arg web_version "${{ needs.gate.outputs.web_version }}" \
             --arg web_sha "${GITHUB_SHA}" \
             --arg web_deploy_number "$deploy_number" \
-            --arg web_min_api_contract "$WEB_MIN_API_CONTRACT" \
+            --arg web_min_api_contract "${{ needs.gate.outputs.web_min_api_contract }}" \
             --arg deployed_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             '$existing + {
               web: {
@@ -173,4 +201,3 @@ jobs:
             --type "String" \
             --overwrite \
             --value "$merged" >/dev/null
-          echo "Updated release manifest parameter: $RELEASE_MANIFEST_PARAM"
