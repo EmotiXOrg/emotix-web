@@ -140,7 +140,7 @@ describe("LoginForm state machine", () => {
 
         await waitFor(() => {
             expect(discoverAuthMethodsMock).toHaveBeenCalledWith("dev@emotix.net");
-            expect(startPasswordSetupMock).toHaveBeenCalledWith("dev@emotix.net");
+            expect(startPasswordSetupMock).not.toHaveBeenCalled();
             expect(nativeSignInMock).not.toHaveBeenCalled();
             expect(navigateMock).toHaveBeenCalledWith(
                 "/auth?mode=verify&email=dev%40emotix.net&action=setup_password",
@@ -196,7 +196,7 @@ describe("LoginForm state machine", () => {
         await user.click(screen.getByRole("button", { name: "Continue" }));
 
         await waitFor(() => {
-            expect(startPasswordSetupMock).toHaveBeenCalledWith("dev@emotix.net");
+            expect(startPasswordSetupMock).not.toHaveBeenCalled();
             expect(nativeRequestResetMock).not.toHaveBeenCalled();
             expect(navigateMock).toHaveBeenCalledWith(
                 "/auth?mode=verify&email=dev%40emotix.net&action=setup_password",

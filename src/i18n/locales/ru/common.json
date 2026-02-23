@@ -23,15 +23,24 @@
         "verified": "Подтверждено",
         "unverified": "Не подтверждено",
         "socialOnlyHelp": "Сейчас для этого аккаунта доступен только вход через соцсети. Установите пароль, чтобы включить вход по email.",
+        "emailLoginTitle": "Вход по email",
+        "verifyEmail": "Подтвердить email",
+        "sendVerificationCode": "Отправить код подтверждения",
+        "sendCodeAgain": "Отправить код снова",
+        "verifyCode": "Проверить код",
         "newPassword": "Новый пароль",
         "confirmPassword": "Подтвердите пароль",
         "setPassword": "Установить пароль",
         "info": {
-            "passwordEnabled": "Пароль для этого аккаунта установлен."
+            "passwordEnabled": "Пароль для этого аккаунта установлен.",
+            "verificationCodeSent": "Код подтверждения отправлен.",
+            "emailVerified": "Email подтвержден. Теперь задайте пароль."
         },
         "error": {
             "load": "Не удалось загрузить привязанные способы входа.",
-            "passwordMismatch": "Пароли не совпадают."
+            "passwordMismatch": "Пароли не совпадают.",
+            "missingEmail": "Email аккаунта недоступен.",
+            "tooManyResendAttempts": "Слишком много попыток. Подождите несколько минут и попробуйте снова."
         },
         "method": {
             "password": "Email + Пароль",
@@ -45,4 +54,3 @@
         }
     }
 }
-

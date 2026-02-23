@@ -23,7 +23,10 @@
         "verified": "Verified",
         "unverified": "Unverified",
         "socialOnlyHelp": "This account currently uses social sign-in only. Set a password to enable email login.",
+        "emailLoginTitle": "Email login",
+        "verifyEmail": "Verify email",
         "sendVerificationCode": "Send verification code",
+        "sendCodeAgain": "Send code again",
         "verifyCode": "Verify code",
         "newPassword": "New password",
         "confirmPassword": "Confirm password",
@@ -36,7 +39,8 @@
         "error": {
             "load": "Failed to load linked sign-in methods.",
             "passwordMismatch": "Passwords do not match.",
-            "missingEmail": "Account email is unavailable."
+            "missingEmail": "Account email is unavailable.",
+            "tooManyResendAttempts": "Too many resend attempts. Please wait a few minutes and try again."
         },
         "method": {
             "password": "Email + Password",

@@ -22,6 +22,8 @@ type MethodItem = {
     linkedAt?: string;
     verified: boolean;
 };
+const RESEND_COOLDOWN_SECONDS = 60;
+const MAX_RESEND_ATTEMPTS = 5;
 
 function methodLabel(method: LoginMethod) {
     if (method === "password") return "settings.method.password";
@@ -36,8 +38,10 @@ export function AccountSettingsPanel() {
     const [methods, setMethods] = useState<MethodItem[]>([]);
     const [profileEmail, setProfileEmail] = useState<string | null>(null);
     const [verificationCode, setVerificationCode] = useState("");
-    const [passwordSetupStep, setPasswordSetupStep] = useState<"verify" | "set_password">("verify");
+    const [passwordSetupStep, setPasswordSetupStep] = useState<"intro" | "code" | "password">("intro");
     const [sendingVerificationCode, setSendingVerificationCode] = useState(false);
+    const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
+    const [resendAttempts, setResendAttempts] = useState(0);
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [err, setErr] = useState<string | null>(null);
@@ -64,9 +68,30 @@ export function AccountSettingsPanel() {
         void loadMethods();
     }, [loadMethods]);
 
+    useEffect(() => {
+        if (resendCooldownSeconds <= 0) {
+            return;
+        }
+        const timer = window.setInterval(() => {
+            setResendCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [resendCooldownSeconds]);
+
     async function onSendVerificationCode() {
         if (!profileEmail) {
             setErr(t("settings.error.missingEmail", { defaultValue: "Account email is unavailable." }));
+            return;
+        }
+        if (resendCooldownSeconds > 0) {
+            return;
+        }
+        if (resendAttempts >= MAX_RESEND_ATTEMPTS) {
+            setErr(
+                t("settings.error.tooManyResendAttempts", {
+                    defaultValue: "Too many resend attempts. Please wait a few minutes and try again.",
+                })
+            );
             return;
         }
 
@@ -79,7 +104,10 @@ export function AccountSettingsPanel() {
                 setErr(res.message);
                 return;
             }
+            setResendAttempts((prev) => prev + 1);
+            setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
             setInfo(t("settings.info.verificationCodeSent", { defaultValue: "Verification code sent." }));
+            setPasswordSetupStep("code");
         } finally {
             setSendingVerificationCode(false);
         }
@@ -96,13 +124,18 @@ export function AccountSettingsPanel() {
                 return;
             }
 
-            if (passwordSetupStep === "verify") {
+            if (passwordSetupStep === "intro") {
+                await onSendVerificationCode();
+                return;
+            }
+
+            if (passwordSetupStep === "code") {
                 const verify = await verifyPasswordSetupCode(profileEmail, verificationCode.trim());
                 if (!verify.ok) {
                     setErr(verify.message);
                     return;
                 }
-                setPasswordSetupStep("set_password");
+                setPasswordSetupStep("password");
                 setInfo(t("settings.info.emailVerified", { defaultValue: "Email verified. Now set your password." }));
                 return;
             }
@@ -114,14 +147,17 @@ export function AccountSettingsPanel() {
             const res = await completePasswordSetup(profileEmail, newPassword);
             if (!res.ok) {
                 setErr(res.message);
-                setPasswordSetupStep("verify");
+                setPasswordSetupStep("intro");
+                setVerificationCode("");
                 return;
             }
             setInfo(t("settings.info.passwordEnabled", { defaultValue: "Password enabled for this account." }));
             setVerificationCode("");
-            setPasswordSetupStep("verify");
+            setPasswordSetupStep("intro");
             setNewPassword("");
             setConfirmPassword("");
+            setResendCooldownSeconds(0);
+            setResendAttempts(0);
             await loadMethods({ forceRefresh: true });
         } finally {
             setSavingPassword(false);
@@ -151,11 +187,6 @@ export function AccountSettingsPanel() {
                     defaultValue: "Connected sign-in methods and account security settings.",
                 })}
             </div>
-            <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900/40 px-3 py-2">
-                <div className="text-xs text-neutral-400">{t("settings.accountEmail", { defaultValue: "Account email" })}</div>
-                <div className="text-sm font-medium">{profileEmail ?? t("settings.unavailable", { defaultValue: "Unavailable" })}</div>
-            </div>
-
             <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="text-lg font-medium">
@@ -216,69 +247,101 @@ export function AccountSettingsPanel() {
                     </div>
                 )}
 
-                {!hasPasswordMethod && (
-                    <form onSubmit={onSetPassword} className="space-y-3 border-t border-neutral-800 pt-4">
-                        <div className="text-sm text-neutral-300">
-                            {t("settings.socialOnlyHelp", {
-                                defaultValue: "This account currently uses social sign-in only. Verify email, then set a password to enable email login.",
-                            })}
+                <div className="border-t border-neutral-800 pt-4">
+                    <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-4 space-y-3">
+                        <div className="text-base font-medium">{t("settings.emailLoginTitle", { defaultValue: "Email login" })}</div>
+                        <div>
+                            <div className="text-xs text-neutral-400">{t("settings.accountEmail", { defaultValue: "Account email" })}</div>
+                            <div className="text-sm font-medium">{profileEmail ?? t("settings.unavailable", { defaultValue: "Unavailable" })}</div>
                         </div>
-                        <TextField
-                            label={t("auth:verificationCode", { defaultValue: "Verification code" })}
-                            placeholder={t("auth:verificationCode", { defaultValue: "Verification code" })}
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            inputMode="numeric"
-                            disabled={passwordSetupStep === "set_password"}
-                        />
-                        {passwordSetupStep === "set_password" && (
-                            <>
-                                <PasswordStep
-                                    password={newPassword}
-                                    onPasswordChange={setNewPassword}
-                                    mode="reset"
-                                    label={t("settings.newPassword", { defaultValue: "New password" })}
-                                />
-                                <TextField
-                                    label={t("settings.confirmPassword", { defaultValue: "Confirm password" })}
-                                    placeholder={t("settings.confirmPassword", { defaultValue: "Confirm password" })}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    type="password"
-                                    autoComplete="new-password"
-                                />
-                            </>
+                        {hasPasswordMethod ? (
+                            <div className="text-sm text-emerald-300">
+                                {t("settings.info.passwordEnabled", { defaultValue: "Password enabled for this account." })}
+                            </div>
+                        ) : (
+                            <form onSubmit={onSetPassword} className="space-y-3">
+                                {passwordSetupStep === "intro" && (
+                                    <>
+                                        <div className="text-sm text-neutral-300">
+                                            {t("settings.socialOnlyHelp", {
+                                                defaultValue: "Verify your email to enable login with email and password.",
+                                            })}
+                                        </div>
+                                        <Button
+                                            type="submit"
+                                            fullWidth
+                                            disabled={savingPassword || sendingVerificationCode || !profileEmail}
+                                        >
+                                            {savingPassword || sendingVerificationCode
+                                                ? t("auth:pleaseWait", { defaultValue: "Please wait..." })
+                                                : t("settings.verifyEmail", { defaultValue: "Verify email" })}
+                                        </Button>
+                                    </>
+                                )}
+                                {passwordSetupStep === "code" && (
+                                    <>
+                                        <TextField
+                                            label={t("auth:verificationCode", { defaultValue: "Verification code" })}
+                                            placeholder={t("auth:verificationCode", { defaultValue: "Verification code" })}
+                                            value={verificationCode}
+                                            onChange={(e) => setVerificationCode(e.target.value)}
+                                            inputMode="numeric"
+                                        />
+                                        <Button
+                                            type="submit"
+                                            fullWidth
+                                            disabled={savingPassword || verificationCode.trim().length === 0}
+                                        >
+                                            {savingPassword
+                                                ? t("auth:pleaseWait", { defaultValue: "Please wait..." })
+                                                : t("settings.verifyCode", { defaultValue: "Verify code" })}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="link"
+                                            onClick={() => void onSendVerificationCode()}
+                                            disabled={sendingVerificationCode || savingPassword || resendCooldownSeconds > 0 || resendAttempts >= MAX_RESEND_ATTEMPTS}
+                                        >
+                                            {resendCooldownSeconds > 0
+                                                ? t("auth:resendCodeCooldown", {
+                                                    defaultValue: "Resend code in {{seconds}}s",
+                                                    seconds: resendCooldownSeconds,
+                                                })
+                                                : t("settings.sendCodeAgain", { defaultValue: "Send code again" })}
+                                        </Button>
+                                    </>
+                                )}
+                                {passwordSetupStep === "password" && (
+                                    <>
+                                        <PasswordStep
+                                            password={newPassword}
+                                            onPasswordChange={setNewPassword}
+                                            mode="reset"
+                                            label={t("settings.newPassword", { defaultValue: "New password" })}
+                                        />
+                                        <TextField
+                                            label={t("settings.confirmPassword", { defaultValue: "Confirm password" })}
+                                            placeholder={t("settings.confirmPassword", { defaultValue: "Confirm password" })}
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            type="password"
+                                            autoComplete="new-password"
+                                        />
+                                        <Button
+                                            type="submit"
+                                            fullWidth
+                                            disabled={savingPassword || newPassword.length < 10 || confirmPassword.length < 10}
+                                        >
+                                            {savingPassword
+                                                ? t("auth:pleaseWait", { defaultValue: "Please wait..." })
+                                                : t("settings.setPassword", { defaultValue: "Set password" })}
+                                        </Button>
+                                    </>
+                                )}
+                            </form>
                         )}
-                        {passwordSetupStep === "verify" && (
-                            <Button
-                                type="button"
-                                variant="link"
-                                onClick={() => void onSendVerificationCode()}
-                                disabled={sendingVerificationCode || savingPassword || !profileEmail}
-                            >
-                                {sendingVerificationCode
-                                    ? t("auth:pleaseWait", { defaultValue: "Please wait..." })
-                                    : t("settings.sendVerificationCode", { defaultValue: "Send verification code" })}
-                            </Button>
-                        )}
-                        <Button
-                            type="submit"
-                            fullWidth
-                            disabled={
-                                savingPassword ||
-                                (passwordSetupStep === "verify"
-                                    ? verificationCode.trim().length === 0
-                                    : verificationCode.trim().length === 0 || newPassword.length < 10 || confirmPassword.length < 10)
-                            }
-                        >
-                            {savingPassword
-                                ? t("auth:pleaseWait", { defaultValue: "Please wait..." })
-                                : passwordSetupStep === "verify"
-                                  ? t("settings.verifyCode", { defaultValue: "Verify code" })
-                                  : t("settings.setPassword", { defaultValue: "Set password" })}
-                        </Button>
-                    </form>
-                )}
+                    </div>
+                </div>
 
                 {err && <Notification tone="error" message={err} />}
                 {info && <Notification tone="success" message={info} />}

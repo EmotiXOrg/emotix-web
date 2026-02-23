@@ -23,15 +23,24 @@
         "verified": "Verifiziert",
         "unverified": "Nicht verifiziert",
         "socialOnlyHelp": "Dieses Konto nutzt derzeit nur Social Login. Setzen Sie ein Passwort, um E-Mail-Login zu aktivieren.",
+        "emailLoginTitle": "E-Mail-Login",
+        "verifyEmail": "E-Mail verifizieren",
+        "sendVerificationCode": "Verifizierungscode senden",
+        "sendCodeAgain": "Code erneut senden",
+        "verifyCode": "Code verifizieren",
         "newPassword": "Neues Passwort",
         "confirmPassword": "Passwort bestatigen",
         "setPassword": "Passwort setzen",
         "info": {
-            "passwordEnabled": "Passwort fur dieses Konto aktiviert."
+            "passwordEnabled": "Passwort fur dieses Konto aktiviert.",
+            "verificationCodeSent": "Verifizierungscode gesendet.",
+            "emailVerified": "E-Mail verifiziert. Jetzt ein Passwort setzen."
         },
         "error": {
             "load": "Verknupfte Anmeldemethoden konnten nicht geladen werden.",
-            "passwordMismatch": "Passworter stimmen nicht uberein."
+            "passwordMismatch": "Passworter stimmen nicht uberein.",
+            "missingEmail": "Konto-E-Mail ist nicht verfugbar.",
+            "tooManyResendAttempts": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut."
         },
         "method": {
             "password": "E-Mail + Passwort",

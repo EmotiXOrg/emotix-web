@@ -61,7 +61,7 @@ describe("AccountSettingsPanel", () => {
 
         render(<AccountSettingsPanel />);
 
-        const sendCodeButton = await screen.findByRole("button", { name: "Send verification code" });
+        const sendCodeButton = await screen.findByRole("button", { name: "Verify email" });
         await user.click(sendCodeButton);
         await waitFor(() => {
             expect(startPasswordSetupMock).toHaveBeenCalledWith("dev@emotix.net");
@@ -82,7 +82,7 @@ describe("AccountSettingsPanel", () => {
 
         await waitFor(() => {
             expect(completePasswordSetupMock).toHaveBeenCalledWith("dev@emotix.net", "Password123!");
-            expect(screen.getByText("Password enabled for this account.")).toBeInTheDocument();
+            expect(screen.getAllByText("Password enabled for this account.").length).toBeGreaterThan(0);
         });
     });
 });

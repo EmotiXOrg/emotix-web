@@ -62,7 +62,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const [busy, setBusy] = useState(false);
     const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
     const [resendAttempts, setResendAttempts] = useState(0);
-    const [passwordSetupStep, setPasswordSetupStep] = useState<"verify" | "set_password">("verify");
+    const [passwordSetupStep, setPasswordSetupStep] = useState<"intro" | "code" | "password">("intro");
 
     useEffect(() => {
         if (emailFromQuery) setEmail(emailFromQuery);
@@ -92,11 +92,13 @@ export function LoginForm(props: { mode: AuthMode }) {
 
     useEffect(() => {
         if (props.mode === "verify" && actionFromQuery === "setup_password") {
-            setPasswordSetupStep("verify");
+            setPasswordSetupStep("intro");
             setCode("");
+            setResendCooldownSeconds(0);
+            setResendAttempts(0);
             return;
         }
-        setPasswordSetupStep("verify");
+        setPasswordSetupStep("intro");
     }, [actionFromQuery, props.mode]);
 
     const title = useMemo(() => {
@@ -180,11 +182,6 @@ export function LoginForm(props: { mode: AuthMode }) {
                 const shouldStartPasswordSetup = !hasPasswordMethod || discoverResult.nextAction === "signup_or_signin";
 
                 if (shouldStartPasswordSetup) {
-                    const setupStartResult = await startPasswordSetup(eNorm);
-                    if (!setupStartResult.ok) {
-                        setError(setupStartResult.message);
-                        return;
-                    }
                     setNewPassword(password);
                     setConfirmNewPassword(password);
                     go("verify", { email: eNorm, action: "setup_password", replace: true });
@@ -198,11 +195,6 @@ export function LoginForm(props: { mode: AuthMode }) {
                         return;
                     }
                     if (result.code === "UserNotConfirmedException" || discoverResult.nextAction === "needs_verification") {
-                        const setupStartResult = await startPasswordSetup(eNorm);
-                        if (!setupStartResult.ok) {
-                            setError(setupStartResult.message);
-                            return;
-                        }
                         setNewPassword(password);
                         setConfirmNewPassword(password);
                         go("verify", { email: eNorm, action: "setup_password", replace: true });
@@ -217,11 +209,6 @@ export function LoginForm(props: { mode: AuthMode }) {
                 const result = await nativeSignUp(eNorm, password);
                 if (!result.ok) {
                     if (result.code === "UsernameExistsException") {
-                        const setupResult = await startPasswordSetup(eNorm);
-                        if (!setupResult.ok) {
-                            setError(setupResult.message);
-                            return;
-                        }
                         go("verify", { email: eNorm, action: "setup_password", replace: true });
                         return;
                     }
@@ -234,13 +221,26 @@ export function LoginForm(props: { mode: AuthMode }) {
 
             if (props.mode === "verify") {
                 if (isPasswordSetupVerify) {
-                    if (passwordSetupStep === "verify") {
+                    if (passwordSetupStep === "intro") {
+                        const setupStartResult = await startPasswordSetup(eNorm);
+                        if (!setupStartResult.ok) {
+                            setError(setupStartResult.message);
+                            return;
+                        }
+                        setResendAttempts((prev) => prev + 1);
+                        setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
+                        setInformation(t("codeResent", { defaultValue: "Code resent." }));
+                        setPasswordSetupStep("code");
+                        return;
+                    }
+
+                    if (passwordSetupStep === "code") {
                         const verifyResult = await verifyPasswordSetupCode(eNorm, code.trim());
                         if (!verifyResult.ok) {
                             setError(verifyResult.message || t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
                             return;
                         }
-                        setPasswordSetupStep("set_password");
+                        setPasswordSetupStep("password");
                         return;
                     }
 
@@ -251,7 +251,8 @@ export function LoginForm(props: { mode: AuthMode }) {
                     const completeResult = await completePasswordSetup(eNorm, newPassword);
                     if (!completeResult.ok) {
                         setError(completeResult.message || t("verificationFailedTryAgain", { defaultValue: "Verification failed. Please try again." }));
-                        setPasswordSetupStep("verify");
+                        setPasswordSetupStep("intro");
+                        setCode("");
                         return;
                     }
                     const loginResult = await nativeSignIn(eNorm, newPassword);
@@ -276,11 +277,6 @@ export function LoginForm(props: { mode: AuthMode }) {
             if (props.mode === "forgot") {
                 const discoverResult = await discoverAuthMethods(eNorm);
                 if (discoverResult.nextAction === "needs_verification" || !discoverResult.methods.includes("password")) {
-                    const setupStartResult = await startPasswordSetup(eNorm);
-                    if (!setupStartResult.ok) {
-                        setError(setupStartResult.message);
-                        return;
-                    }
                     go("verify", { email: eNorm, action: "setup_password", replace: true });
                     return;
                 }
@@ -319,7 +315,9 @@ export function LoginForm(props: { mode: AuthMode }) {
         setInfo(null);
         setBusy(true);
         try {
-            const result = await nativeResend(normEmail(email));
+            const result = isPasswordSetupVerify
+                ? await startPasswordSetup(normEmail(email))
+                : await nativeResend(normEmail(email));
             if (!result.ok) {
                 if (result.code === "LimitExceededException") {
                     setResendCooldownSeconds(RESEND_COOLDOWN_SECONDS);
@@ -345,8 +343,9 @@ export function LoginForm(props: { mode: AuthMode }) {
         if (busy) return false;
         if (props.mode === "login") return !!email.trim() && !!password;
         if (props.mode === "signup") return !!password;
-        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "verify") return !!code.trim();
-        if (props.mode === "verify" && isPasswordSetupVerify) return !!code.trim() && !!newPassword && !!confirmNewPassword;
+        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "intro") return true;
+        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code") return !!code.trim();
+        if (props.mode === "verify" && isPasswordSetupVerify) return !!newPassword && !!confirmNewPassword;
         if (props.mode === "verify") return !!code.trim();
         if (props.mode === "forgot") return true;
         if (props.mode === "reset") return !!code.trim() && !!newPassword;
@@ -374,15 +373,23 @@ export function LoginForm(props: { mode: AuthMode }) {
 
                     {props.mode === "verify" && (
                         <>
-                            <TextField
-                                label={t("verificationCode", { defaultValue: "Verification code" })}
-                                placeholder={t("verificationCode", { defaultValue: "Verification code" })}
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                inputMode="numeric"
-                                disabled={isPasswordSetupVerify && passwordSetupStep === "set_password"}
-                            />
-                            {isPasswordSetupVerify && passwordSetupStep === "set_password" && (
+                            {isPasswordSetupVerify && passwordSetupStep === "intro" && (
+                                <div className="text-sm text-neutral-300">
+                                    {t("verifyEmailToEnablePassword", {
+                                        defaultValue: "Verify your email to enable login with email and password.",
+                                    })}
+                                </div>
+                            )}
+                            {(!isPasswordSetupVerify || passwordSetupStep === "code") && (
+                                <TextField
+                                    label={t("verificationCode", { defaultValue: "Verification code" })}
+                                    placeholder={t("verificationCode", { defaultValue: "Verification code" })}
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    inputMode="numeric"
+                                />
+                            )}
+                            {isPasswordSetupVerify && passwordSetupStep === "password" && (
                                 <>
                                     <PasswordStep
                                         password={newPassword}
@@ -422,8 +429,29 @@ export function LoginForm(props: { mode: AuthMode }) {
                     <Button fullWidth disabled={!canSubmit} type="submit">
                         {busy
                             ? t("pleaseWait", { defaultValue: "Please wait..." })
-                            : t("continue", { defaultValue: "Continue" })}
+                            : props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "intro"
+                              ? t("verifyEmail", { defaultValue: "Verify email" })
+                              : props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code"
+                                ? t("verifyCode", { defaultValue: "Verify code" })
+                                : props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "password"
+                                  ? t("setPassword", { defaultValue: "Set password" })
+                                  : t("continue", { defaultValue: "Continue" })}
                     </Button>
+                    {props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code" && (
+                        <Button
+                            variant="link"
+                            onClick={onResendCode}
+                            disabled={busy || !email || resendCooldownSeconds > 0 || resendAttempts >= MAX_RESEND_ATTEMPTS}
+                            type="button"
+                        >
+                            {resendCooldownSeconds > 0
+                                ? t("resendCodeCooldown", {
+                                    defaultValue: "Resend code in {{seconds}}s",
+                                    seconds: resendCooldownSeconds,
+                                })
+                                : t("sendCodeAgain", { defaultValue: "Send code again" })}
+                        </Button>
+                    )}
                 </form>
             </div>
 
@@ -443,7 +471,7 @@ export function LoginForm(props: { mode: AuthMode }) {
                     </>
                 )}
 
-                {props.mode === "verify" && (
+                {props.mode === "verify" && !isPasswordSetupVerify && (
                     <>
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             {t("backToLogin", { defaultValue: "Back to login" })}
