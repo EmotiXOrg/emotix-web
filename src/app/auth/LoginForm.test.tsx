@@ -204,4 +204,50 @@ describe("LoginForm state machine", () => {
             );
         });
     });
+
+    it("shows an error when forgot-password is requested for an unknown email", async () => {
+        const user = userEvent.setup();
+        discoverAuthMethodsMock.mockResolvedValue({
+            email: "missing@emotix.net",
+            methods: ["password", "google", "facebook"],
+            nextAction: "signup_or_signin",
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/auth?mode=forgot&email=missing%40emotix.net"]}>
+                <LoginForm mode="forgot" />
+            </MemoryRouter>
+        );
+
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await waitFor(() => {
+            expect(nativeRequestResetMock).not.toHaveBeenCalled();
+            expect(navigateMock).not.toHaveBeenCalled();
+            expect(screen.getByText("No account found for this email.")).toBeInTheDocument();
+        });
+    });
+
+    it("stays on forgot-password and shows the reset request error when code delivery fails", async () => {
+        const user = userEvent.setup();
+        nativeRequestResetMock.mockResolvedValue({
+            ok: false,
+            code: "LimitExceededException",
+            message: "Too many attempts. Try again later.",
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/auth?mode=forgot&email=dev%40emotix.net"]}>
+                <LoginForm mode="forgot" />
+            </MemoryRouter>
+        );
+
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        await waitFor(() => {
+            expect(nativeRequestResetMock).toHaveBeenCalledWith("dev@emotix.net");
+            expect(navigateMock).not.toHaveBeenCalled();
+            expect(screen.getByText("Too many attempts. Try again later.")).toBeInTheDocument();
+        });
+    });
 });

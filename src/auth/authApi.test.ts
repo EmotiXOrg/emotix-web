@@ -131,7 +131,7 @@ describe("authApi", () => {
     expect(resendResult).toEqual({ ok: true });
   });
 
-  it("nativeRequestReset always returns ok to prevent account enumeration", async () => {
+  it("nativeRequestReset returns mapped errors when reset request fails", async () => {
     resetPasswordMock.mockRejectedValue({
       name: "UserNotFoundException",
       message: "User does not exist",
@@ -139,9 +139,12 @@ describe("authApi", () => {
 
     const result = await nativeRequestReset("missing@emotix.net");
 
-    // Failure here is a security/UX regression: callers could infer account existence.
     expect(resetPasswordMock).toHaveBeenCalledWith({ username: "missing@emotix.net" });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({
+      ok: false,
+      code: "UserNotFoundException",
+      message: "User does not exist",
+    });
   });
 
   it("nativeConfirmReset returns mapped error when reset confirmation fails", async () => {

@@ -146,11 +146,9 @@ export async function nativeSignIn(email: string, password: string): Promise<Aut
 export async function nativeRequestReset(email: string): Promise<AuthResult> {
     try {
         await resetPassword({ username: email });
-        // IMPORTANT: don't reveal if user exists
         return { ok: true };
-    } catch {
-        // still return ok to avoid account enumeration UX
-        return { ok: true };
+    } catch (e) {
+        return toAuthError(e);
     }
 }
 

@@ -155,6 +155,14 @@ export function LoginForm(props: { mode: AuthMode }) {
         setInfo(message);
     }
 
+    function setUnknownEmailError() {
+        setError(
+            t("emailNotFound", {
+                defaultValue: "No account found for this email.",
+            })
+        );
+    }
+
     async function social(provider: "Google" | "Facebook") {
         setErr(null);
         setInfo(null);
@@ -173,6 +181,14 @@ export function LoginForm(props: { mode: AuthMode }) {
         setInfo(null);
 
         const eNorm = normEmail(email);
+        if (!eNorm) {
+            setError(
+                t("emailRequired", {
+                    defaultValue: "Email is required.",
+                })
+            );
+            return;
+        }
         setBusy(true);
 
         try {
@@ -276,11 +292,23 @@ export function LoginForm(props: { mode: AuthMode }) {
 
             if (props.mode === "forgot") {
                 const discoverResult = await discoverAuthMethods(eNorm);
+                if (discoverResult.nextAction === "signup_or_signin") {
+                    setUnknownEmailError();
+                    return;
+                }
                 if (discoverResult.nextAction === "needs_verification" || !discoverResult.methods.includes("password")) {
                     go("verify", { email: eNorm, action: "setup_password", replace: true });
                     return;
                 }
-                await nativeRequestReset(eNorm);
+                const result = await nativeRequestReset(eNorm);
+                if (!result.ok) {
+                    if (result.code === "UserNotFoundException") {
+                        setUnknownEmailError();
+                        return;
+                    }
+                    setError(result.message);
+                    return;
+                }
                 go("reset", { email: eNorm, replace: true });
                 return;
             }
@@ -294,6 +322,15 @@ export function LoginForm(props: { mode: AuthMode }) {
                 go("login", { replace: true });
                 setInformation(t("passwordUpdated", { defaultValue: "Password updated. Please log in." }));
             }
+        } catch (submitError) {
+            setError(
+                getErrorMessage(
+                    submitError,
+                    t("authActionFailed", {
+                        defaultValue: "Authentication request failed. Please try again.",
+                    })
+                )
+            );
         } finally {
             setBusy(false);
         }
@@ -341,7 +378,8 @@ export function LoginForm(props: { mode: AuthMode }) {
 
     const canSubmit = useMemo(() => {
         if (busy) return false;
-        if (props.mode === "login") return !!email.trim() && !!password;
+        if (!email.trim()) return false;
+        if (props.mode === "login") return !!password;
         if (props.mode === "signup") return !!password;
         if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "intro") return true;
         if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code") return !!code.trim();
