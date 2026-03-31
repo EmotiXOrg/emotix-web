@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../ui/Button";
+import { LanguageSelect } from "../../ui/LanguageSelect";
 import { Notification } from "../../ui/Notification";
 import { PasswordStep } from "../auth/components/PasswordStep";
 import { TextField } from "../../ui/TextField";
@@ -12,8 +14,6 @@ import {
     type LoginMethod,
     verifyPasswordSetupCode,
 } from "../../auth/authApi";
-import { useTranslation } from "react-i18next";
-import { setLanguage, type SupportedLanguage } from "../../i18n";
 import { buildInfo } from "../buildInfo";
 
 type MethodItem = {
@@ -22,6 +22,7 @@ type MethodItem = {
     linkedAt?: string;
     verified: boolean;
 };
+
 const RESEND_COOLDOWN_SECONDS = 60;
 const MAX_RESEND_ATTEMPTS = 5;
 
@@ -170,24 +171,19 @@ export function AccountSettingsPanel() {
                 <div className="text-2xl font-semibold">{t("nav.profile", { defaultValue: "Profile" })}</div>
                 <div className="space-y-1">
                     <div className="text-xs text-neutral-400">{t("settings.languageLabel", { defaultValue: "Language" })}</div>
-                    <select
-                        className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1 text-sm"
+                    <LanguageSelect
+                        className="min-w-[8.5rem] rounded-lg border border-neutral-800 bg-neutral-950 px-2 py-1 text-sm normal-case tracking-normal"
                         value={i18n.language}
-                        onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
-                        aria-label={t("settings.languageLabel", { defaultValue: "Language" })}
-                    >
-                        <option value="en">{t("settings.language.en", { defaultValue: "English" })}</option>
-                        <option value="de">{t("settings.language.de", { defaultValue: "Deutsch" })}</option>
-                        <option value="ru">{t("settings.language.ru", { defaultValue: "Русский" })}</option>
-                    </select>
+                        ariaLabel={t("settings.languageLabel", { defaultValue: "Language" })}
+                    />
                 </div>
             </div>
-            <div className="text-neutral-400 mt-2">
+            <div className="mt-2 text-neutral-400">
                 {t("settings.subtitle", {
                     defaultValue: "Connected sign-in methods and account security settings.",
                 })}
             </div>
-            <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 space-y-4">
+            <div className="mt-6 space-y-4 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4">
                 <div className="flex items-center justify-between">
                     <div className="text-lg font-medium">
                         {t("settings.connectedMethods", { defaultValue: "Connected sign-in methods" })}
@@ -219,7 +215,7 @@ export function AccountSettingsPanel() {
                         {methods.map((item) => (
                             <div
                                 key={`${item.provider}-${item.linkedAt ?? "na"}`}
-                                className="rounded-xl border border-neutral-800 px-3 py-2 flex items-center justify-between"
+                                className="flex items-center justify-between rounded-xl border border-neutral-800 px-3 py-2"
                             >
                                 <div>
                                     <div className="font-medium">{t(methodLabel(item.method), { defaultValue: item.method })}</div>
@@ -231,7 +227,7 @@ export function AccountSettingsPanel() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div
-                                        className={`text-xs rounded-full px-2 py-1 border ${
+                                        className={`rounded-full border px-2 py-1 text-xs ${
                                             item.verified
                                                 ? "border-emerald-500/60 text-emerald-300"
                                                 : "border-amber-500/60 text-amber-300"
@@ -248,7 +244,7 @@ export function AccountSettingsPanel() {
                 )}
 
                 <div className="border-t border-neutral-800 pt-4">
-                    <div className="rounded-2xl border border-neutral-800 bg-neutral-950/40 p-4 space-y-3">
+                    <div className="space-y-3 rounded-2xl border border-neutral-800 bg-neutral-950/40 p-4">
                         <div className="text-base font-medium">{t("settings.emailLoginTitle", { defaultValue: "Email login" })}</div>
                         <div>
                             <div className="text-xs text-neutral-400">{t("settings.accountEmail", { defaultValue: "Account email" })}</div>
@@ -349,7 +345,7 @@ export function AccountSettingsPanel() {
 
             <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
                 <div className="text-sm font-medium">{t("settings.buildInfo", { defaultValue: "Build info" })}</div>
-                <div className="mt-2 text-xs text-neutral-400 space-y-1">
+                <div className="mt-2 space-y-1 text-xs text-neutral-400">
                     <div>stage: {buildInfo.stage}</div>
                     <div>web version: {buildInfo.appVersion}</div>
                     <div>build number: {buildInfo.buildNumber}</div>

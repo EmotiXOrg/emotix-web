@@ -88,8 +88,8 @@ describe("LoginForm state machine", () => {
 
         expect(screen.getByLabelText("Email")).toBeInTheDocument();
         expect(screen.getByLabelText("Password")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Continue with Facebook" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Google" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Facebook" })).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Forgot password" })).toBeInTheDocument();
     });

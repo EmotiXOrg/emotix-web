@@ -14,8 +14,8 @@ describe("MethodChooser", () => {
             />
         );
 
-        expect(screen.queryByRole("button", { name: "Continue with Google" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Continue with Facebook" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Google" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Facebook" })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "Continue with Email" })).not.toBeInTheDocument();
     });
 
@@ -33,8 +33,8 @@ describe("MethodChooser", () => {
             />
         );
 
-        await user.click(screen.getByRole("button", { name: "Continue with Google" }));
-        await user.click(screen.getByRole("button", { name: "Continue with Facebook" }));
+        await user.click(screen.getByRole("button", { name: "Google" }));
+        await user.click(screen.getByRole("button", { name: "Facebook" }));
         await user.click(screen.getByRole("button", { name: "Continue with Email" }));
 
         expect(onChooseSocial).toHaveBeenNthCalledWith(1, "Google");

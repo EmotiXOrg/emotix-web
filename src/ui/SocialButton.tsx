@@ -67,7 +67,6 @@ export function SocialButton(
             <div className="ui-social-button-content">
                 <SocialIcon provider={provider} />
                 <span className="ui-social-button-label">{children}</span>
-                <span className="sr-only">{children}</span>
             </div>
         </button>
     );

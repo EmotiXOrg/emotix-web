@@ -9,10 +9,12 @@ const { setLanguageMock } = vi.hoisted(() => ({
 // Mock i18n side-effects so this suite can focus on UI rendering and language switch wiring.
 vi.mock("../../i18n", () => ({
   setLanguage: setLanguageMock,
+  supportedLanguages: ["en", "de", "ru"],
 }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
+    t: (_k: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? "",
     i18n: {
       language: "en",
     },
