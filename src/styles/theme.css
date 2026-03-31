@@ -1,0 +1,57 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+@layer base {
+  :root {
+    --font-brand: "Cormorant Garamond", Georgia, serif;
+    --font-ui: "Inter", "Segoe UI", sans-serif;
+    --color-bg-950: #09090b;
+    --color-bg-900: #0b0b0d;
+    --color-surface-900: #121216;
+    --color-surface-850: #15151a;
+    --color-surface-800: #18181d;
+    --color-border-soft: #2a2024;
+    --color-border-strong: #3a2a30;
+    --color-burgundy-700: #5a1825;
+    --color-burgundy-600: #6e1e2d;
+    --color-burgundy-500: #84263a;
+    --color-gold-600: #b88a44;
+    --color-gold-500: #c9a15d;
+    --color-gold-400: #dec08a;
+    --color-emerald-700: #16382f;
+    --color-emerald-600: #1f4b3e;
+    --color-emerald-500: #295e4e;
+    --color-text-primary: #f3e7d6;
+    --color-text-secondary: #b7a99a;
+    --color-text-muted: #8d8075;
+    --color-text-disabled: #665d56;
+    --color-state-danger: #a64a5a;
+    --radius-card: 1.75rem;
+    --radius-input: 1.125rem;
+    --shadow-card: 0 24px 60px rgba(0, 0, 0, 0.42);
+    --shadow-button: 0 10px 24px rgba(38, 10, 16, 0.3);
+    --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  html {
+    font-family: var(--font-ui);
+    color: var(--color-text-primary);
+    background:
+      radial-gradient(circle at top, rgba(110, 30, 45, 0.22), transparent 34%),
+      linear-gradient(180deg, var(--color-bg-900) 0%, var(--color-bg-950) 100%);
+  }
+
+  body {
+    min-height: 100%;
+    background: transparent;
+    color: var(--color-text-primary);
+  }
+
+  #root {
+    min-height: 100%;
+  }
+
+  ::selection {
+    background: rgba(132, 38, 58, 0.45);
+    color: var(--color-text-primary);
+  }
+}

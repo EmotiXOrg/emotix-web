@@ -6,6 +6,8 @@ import { AuthCard } from "./AuthCard";
 import { Button } from "../../ui/Button";
 import { TextField } from "../../ui/TextField";
 import { Notification } from "../../ui/Notification";
+import { FormDivider } from "../../ui/FormDivider";
+import { FormHint } from "../../ui/FormHint";
 import { EmailStep } from "./components/EmailStep";
 import { PasswordStep } from "./components/PasswordStep";
 import { SocialButtons } from "./components/SocialButtons";
@@ -104,7 +106,7 @@ export function LoginForm(props: { mode: AuthMode }) {
     const title = useMemo(() => {
         switch (props.mode) {
             case "login":
-                return t("title", { defaultValue: "Welcome back" });
+                return "";
             case "signup":
                 return t("signupTitle", { defaultValue: "Create account" });
             case "verify":
@@ -119,15 +121,15 @@ export function LoginForm(props: { mode: AuthMode }) {
     const subtitle = useMemo(() => {
         switch (props.mode) {
             case "login":
-                return t("subtitle", { defaultValue: "Sign in with email/password or social login" });
+                return t("subtitle", { defaultValue: "Private by design. Sign in to continue at your own pace." });
             case "signup":
-                return t("signupSubtitle", { defaultValue: "Sign up with email and verify it" });
+                return t("signupSubtitle", { defaultValue: "Create your private space with a calm, secure start." });
             case "verify":
-                return t("verifySubtitle", { defaultValue: "Enter the code we sent to your email" });
+                return t("verifySubtitle", { defaultValue: "Enter the code we sent to keep your access secure." });
             case "forgot":
-                return t("forgotSubtitle", { defaultValue: "We'll email you a reset code" });
+                return t("forgotSubtitle", { defaultValue: "We'll help you back in with a discreet reset code." });
             case "reset":
-                return t("resetSubtitle", { defaultValue: "Enter the code and set a new password" });
+                return t("resetSubtitle", { defaultValue: "Choose a new password and continue at your own pace." });
         }
     }, [props.mode, t]);
 
@@ -390,33 +392,63 @@ export function LoginForm(props: { mode: AuthMode }) {
         return false;
     }, [busy, code, confirmNewPassword, email, isPasswordSetupVerify, newPassword, password, passwordSetupStep, props.mode]);
 
+    const primaryLabel = useMemo(() => {
+        if (busy) {
+            return t("pleaseWait", { defaultValue: "Please wait..." });
+        }
+        if (props.mode === "login") {
+            return t("signIn", { defaultValue: "Sign in" });
+        }
+        if (props.mode === "signup") {
+            return t("createAccount", { defaultValue: "Create account" });
+        }
+        if (props.mode === "forgot") {
+            return t("sendResetCode", { defaultValue: "Send reset code" });
+        }
+        if (props.mode === "reset") {
+            return t("resetPassword", { defaultValue: "Reset password" });
+        }
+        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "intro") {
+            return t("verifyEmail", { defaultValue: "Verify email" });
+        }
+        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code") {
+            return t("verifyCode", { defaultValue: "Verify code" });
+        }
+        if (props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "password") {
+            return t("setPassword", { defaultValue: "Set password" });
+        }
+        return t("continue", { defaultValue: "Continue" });
+    }, [busy, isPasswordSetupVerify, passwordSetupStep, props.mode, t]);
+
     return (
         <AuthCard title={title} subtitle={subtitle}>
-            {props.mode === "login" && (
-                <div className="space-y-3 mb-4 motion-fade-slide">
-                    <SocialButtons busy={busy} methods={["google", "facebook"]} onClick={social} />
-                </div>
-            )}
-
             {err && <Notification tone="error" message={err} />}
             {info && <Notification tone="success" message={info} />}
 
             <div key={props.mode} className="motion-fade-slide">
-                <form onSubmit={onSubmit} className="space-y-3">
+                <form onSubmit={onSubmit} className="auth-form">
                     <EmailStep email={email} onEmailChange={setEmail} />
 
                     {(props.mode === "login" || props.mode === "signup") && (
                         <PasswordStep password={password} onPasswordChange={setPassword} mode={props.mode} />
                     )}
 
+                    {props.mode === "login" && (
+                        <div className="flex justify-end">
+                            <Button variant="link" onClick={() => go("forgot", { email: normEmail(email) })} disabled={busy} type="button">
+                                {t("forgotPassword", { defaultValue: "Forgot password" })}
+                            </Button>
+                        </div>
+                    )}
+
                     {props.mode === "verify" && (
                         <>
                             {isPasswordSetupVerify && passwordSetupStep === "intro" && (
-                                <div className="text-sm text-neutral-300">
+                                <FormHint className="rounded-2xl border border-[rgba(184,138,68,0.14)] bg-[rgba(44,34,20,0.2)] px-4 py-3 text-[color:var(--color-text-secondary)]">
                                     {t("verifyEmailToEnablePassword", {
                                         defaultValue: "Verify your email to enable login with email and password.",
                                     })}
-                                </div>
+                                </FormHint>
                             )}
                             {(!isPasswordSetupVerify || passwordSetupStep === "code") && (
                                 <TextField
@@ -464,49 +496,57 @@ export function LoginForm(props: { mode: AuthMode }) {
                         </>
                     )}
 
-                    <Button fullWidth disabled={!canSubmit} type="submit">
-                        {busy
-                            ? t("pleaseWait", { defaultValue: "Please wait..." })
-                            : props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "intro"
-                              ? t("verifyEmail", { defaultValue: "Verify email" })
-                              : props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code"
-                                ? t("verifyCode", { defaultValue: "Verify code" })
-                                : props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "password"
-                                  ? t("setPassword", { defaultValue: "Set password" })
-                                  : t("continue", { defaultValue: "Continue" })}
-                    </Button>
-                    {props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code" && (
-                        <Button
-                            variant="link"
-                            onClick={onResendCode}
-                            disabled={busy || !email || resendCooldownSeconds > 0 || resendAttempts >= MAX_RESEND_ATTEMPTS}
-                            type="button"
-                        >
-                            {resendCooldownSeconds > 0
-                                ? t("resendCodeCooldown", {
-                                    defaultValue: "Resend code in {{seconds}}s",
-                                    seconds: resendCooldownSeconds,
-                                })
-                                : t("sendCodeAgain", { defaultValue: "Send code again" })}
-                        </Button>
-                    )}
+                    <div className="auth-actions">
+                        {props.mode === "login" ? (
+                            <div className="space-y-3">
+                                <Button fullWidth disabled={!canSubmit} type="submit">
+                                    {primaryLabel}
+                                </Button>
+                                <Button fullWidth variant="secondary" onClick={() => go("signup")} disabled={busy} type="button">
+                                    {t("createAccount", { defaultValue: "Create account" })}
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button fullWidth disabled={!canSubmit} type="submit">
+                                {primaryLabel}
+                            </Button>
+                        )}
+                        {props.mode === "verify" && isPasswordSetupVerify && passwordSetupStep === "code" && (
+                            <div className="flex justify-center">
+                                <Button
+                                    variant="link"
+                                    onClick={onResendCode}
+                                    disabled={busy || !email || resendCooldownSeconds > 0 || resendAttempts >= MAX_RESEND_ATTEMPTS}
+                                    type="button"
+                                >
+                                    {resendCooldownSeconds > 0
+                                        ? t("resendCodeCooldown", {
+                                            defaultValue: "Resend code in {{seconds}}s",
+                                            seconds: resendCooldownSeconds,
+                                        })
+                                        : t("sendCodeAgain", { defaultValue: "Send code again" })}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </form>
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-sm text-neutral-300">
-                {props.mode === "login" && (
-                    <Button variant="link" onClick={() => go("forgot", { email: normEmail(email) })} disabled={busy} type="button">
-                        {t("forgotPassword", { defaultValue: "Forgot password" })}
-                    </Button>
-                )}
+            {props.mode === "login" && (
+                <>
+                    <FormDivider label={t("or", { defaultValue: "or login with" })} />
+                    <SocialButtons busy={busy} methods={["google", "facebook"]} onClick={social} />
+                </>
+            )}
 
+            <div className="auth-link-row">
                 {props.mode === "signup" && (
-                    <>
+                    <FormHint>
+                        {t("haveAccount", { defaultValue: "Already have an account?" })}{" "}
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
-                        <span />
-                    </>
+                    </FormHint>
                 )}
 
                 {props.mode === "verify" && !isPasswordSetupVerify && (
@@ -531,21 +571,21 @@ export function LoginForm(props: { mode: AuthMode }) {
                 )}
 
                 {props.mode === "forgot" && (
-                    <>
+                    <FormHint>
+                        {t("rememberedPassword", { defaultValue: "Remembered it?" })}{" "}
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
-                        <span />
-                    </>
+                    </FormHint>
                 )}
 
                 {props.mode === "reset" && (
-                    <>
+                    <FormHint>
+                        {t("backToSignInPrompt", { defaultValue: "Prefer to sign in another way?" })}{" "}
                         <Button variant="link" onClick={() => go("login")} disabled={busy} type="button">
                             {t("backToLogin", { defaultValue: "Back to login" })}
                         </Button>
-                        <span />
-                    </>
+                    </FormHint>
                 )}
             </div>
         </AuthCard>

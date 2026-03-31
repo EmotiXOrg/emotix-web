@@ -11,7 +11,7 @@ describe("Button", () => {
         );
 
         const button = screen.getByRole("button", { name: "Click me" });
-        expect(button.className).toContain("bg-blue-600");
+        expect(button.className).toContain("ui-button-secondary");
         expect(button.className).toContain("w-full");
     });
 });

@@ -110,7 +110,7 @@ describe("LoginForm state machine", () => {
 
         await user.type(screen.getByLabelText("Email"), "dev@emotix.net");
         await user.type(screen.getByLabelText("Password"), "Password123!");
-        await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
 
         await waitFor(() => {
             expect(navigateMock).toHaveBeenCalledWith(
@@ -136,7 +136,7 @@ describe("LoginForm state machine", () => {
 
         await user.type(screen.getByLabelText("Email"), "DEV@emotix.net");
         await user.type(screen.getByLabelText("Password"), "Password123!");
-        await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
 
         await waitFor(() => {
             expect(discoverAuthMethodsMock).toHaveBeenCalledWith("dev@emotix.net");
@@ -170,7 +170,7 @@ describe("LoginForm state machine", () => {
 
         await user.type(screen.getByLabelText("Email"), "dev@emotix.net");
         await user.type(screen.getByLabelText("Password"), "WrongPassword");
-        await user.click(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
+        await user.click(screen.getByRole("button", { name: "Sign in" }));
 
         await waitFor(() => {
             expect(nativeSignInMock).toHaveBeenCalledWith("dev@emotix.net", "WrongPassword");
@@ -193,7 +193,7 @@ describe("LoginForm state machine", () => {
             </MemoryRouter>
         );
 
-        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
         await waitFor(() => {
             expect(startPasswordSetupMock).not.toHaveBeenCalled();
@@ -219,7 +219,7 @@ describe("LoginForm state machine", () => {
             </MemoryRouter>
         );
 
-        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
         await waitFor(() => {
             expect(nativeRequestResetMock).not.toHaveBeenCalled();
@@ -242,7 +242,7 @@ describe("LoginForm state machine", () => {
             </MemoryRouter>
         );
 
-        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
         await waitFor(() => {
             expect(nativeRequestResetMock).toHaveBeenCalledWith("dev@emotix.net");

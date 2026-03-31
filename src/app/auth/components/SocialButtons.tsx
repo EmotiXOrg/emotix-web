@@ -1,5 +1,5 @@
-import { Button } from "../../../ui/Button";
 import { useTranslation } from "react-i18next";
+import { SocialButton } from "../../../ui/SocialButton";
 
 export function SocialButtons(props: {
     busy: boolean;
@@ -8,28 +8,26 @@ export function SocialButtons(props: {
 }) {
     const { t } = useTranslation("auth");
     return (
-        <div className="space-y-3 mb-6 motion-fade-slide">
+        <div className="mx-auto flex w-fit items-center gap-3 motion-fade-slide">
             {props.methods.includes("google") && (
-                <Button
-                    variant="neutral"
-                    fullWidth
+                <SocialButton
+                    provider="google"
                     onClick={() => props.onClick("Google")}
                     disabled={props.busy}
                     type="button"
                 >
-                    {t("continue_google", { defaultValue: "Continue with Google" })}
-                </Button>
+                    {t("continue_google", { defaultValue: "Google" })}
+                </SocialButton>
             )}
             {props.methods.includes("facebook") && (
-                <Button
-                    variant="secondary"
-                    fullWidth
+                <SocialButton
+                    provider="facebook"
                     onClick={() => props.onClick("Facebook")}
                     disabled={props.busy}
                     type="button"
                 >
-                    {t("continue_facebook", { defaultValue: "Continue with Facebook" })}
-                </Button>
+                    {t("continue_facebook", { defaultValue: "Facebook" })}
+                </SocialButton>
             )}
         </div>
     );
